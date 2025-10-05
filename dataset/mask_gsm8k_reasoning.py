@@ -48,7 +48,10 @@ def _mask_tags_content(example: dict) -> dict:
         [f"\n\n{MaskedTag(desc=TAG2DESC[tag])}" for tag in TAGS]
     )
     response = "".join(
-        [str(MaskedTag(id=idx, content=example["generation"][tag])) for idx, tag in enumerate(TAGS)]
+        [
+            str(MaskedTag(id=idx, content=example["generation"][tag]))
+            for idx, tag in enumerate(TAGS)
+        ]
     )
     return to_gim_format(query, response)
 

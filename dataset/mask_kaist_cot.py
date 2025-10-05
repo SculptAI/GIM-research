@@ -36,7 +36,10 @@ def _mask_rationale_and_target(example: dict) -> dict:
 
 
 ds = load_dataset(
-    "kaist-ai/CoT-Collection", split="train", trust_remote_code=True, num_proc=os.cpu_count()
+    "kaist-ai/CoT-Collection",
+    split="train",
+    trust_remote_code=True,
+    num_proc=os.cpu_count(),
 )
 ds = ds.map(_mask_rationale_and_target, num_proc=os.cpu_count()).select_columns(
     [QUERY_COLUMN, RESPONSE_COLUMN]

@@ -31,7 +31,9 @@ def gen_possion_masked(text: str, lam: int) -> tuple[str, str]:
         ranges = [(indices[i], indices[i + 1]) for i in range(0, len(indices), 2)]
         return ranges
 
-    def gen_gim_query_response(text: str, ranges: list[tuple[int, int]]) -> tuple[str, str]:
+    def gen_gim_query_response(
+        text: str, ranges: list[tuple[int, int]]
+    ) -> tuple[str, str]:
         query, response = "", ""
         last_end = 0
         for idx, (start, end) in enumerate(ranges):

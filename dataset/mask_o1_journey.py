@@ -29,8 +29,16 @@ def _mask_cot_and_answer(example: dict) -> dict:
             "The short answer to the question",
         ]
     )
-    query = question + "\n\n" + MaskedTag(desc=long_cot_desc) + "\n\n" + MaskedTag(desc=answer_desc)
-    response = str(MaskedTag(id=0, content=long_cot)) + str(MaskedTag(id=1, content=answer))
+    query = (
+        question
+        + "\n\n"
+        + MaskedTag(desc=long_cot_desc)
+        + "\n\n"
+        + MaskedTag(desc=answer_desc)
+    )
+    response = str(MaskedTag(id=0, content=long_cot)) + str(
+        MaskedTag(id=1, content=answer)
+    )
     return to_gim_format(query, response)
 
 

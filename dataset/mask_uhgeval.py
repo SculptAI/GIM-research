@@ -4,7 +4,13 @@ import random
 import numpy as np
 
 from datasets import load_dataset
-from utils import QUERY_COLUMN, RESPONSE_COLUMN, gen_possion_masked, save_dataset, to_gim_format
+from utils import (
+    QUERY_COLUMN,
+    RESPONSE_COLUMN,
+    gen_possion_masked,
+    save_dataset,
+    to_gim_format,
+)
 
 
 random.seed(0)
