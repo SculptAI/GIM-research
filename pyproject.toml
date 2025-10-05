@@ -14,7 +14,10 @@ dev = [
     "pre-commit>=4.3.0",
     "ruff>=0.13.3",
 ]
-training = [
+eval = [
+    "vllm>=0.11.0",
+]
+train = [
     "transformers==4.55.4",
     "unsloth>=2025.9.11",
     "wandb>=0.22.1",
