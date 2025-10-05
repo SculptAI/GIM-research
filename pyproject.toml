@@ -15,7 +15,7 @@ dev = [
     "ruff>=0.13.3",
 ]
 training = [
-    "swanlab>=0.6.10",
     "transformers==4.55.4",
     "unsloth>=2025.9.11",
+    "wandb>=0.22.1",
 ]
