@@ -50,7 +50,7 @@ class EvalResult(BaseModel):
 
 class BaseEvaluator:
     def __init__(self, args: Namespace, dataset: Dataset):
-        self.start_time = datetime.now().isoformat()
+        self.start_time = datetime.now()
         self.dataset = dataset
         self.args = args
 
@@ -122,7 +122,7 @@ class BaseEvaluator:
         print(
             f"Final accuracy over {total} examples: {corrects}/{total} = {accuracy:.4f}"
         )
-        self.end_time = datetime.now().isoformat()
+        self.end_time = datetime.now()
         return EvalResult(
             total=total,
             evaluates=evaluates,
@@ -175,10 +175,11 @@ class GIMEvaluator(BaseEvaluator):
         )
 
 
-class CommonEvaluator:
+class CommonEvaluator(BaseEvaluator):
     def __init__(self, args: Namespace, dataset: Dataset):
         super().__init__(args, dataset)
 
+    @staticmethod
     def _form_cot_query(question: str, choices: list[str]) -> str:
         prompt = (
             "Answer the question below.\n\n"
@@ -187,3 +188,9 @@ class CommonEvaluator:
             "Let's think step by step:\n"
         )
         return prompt
+
+    def _model_call(self, query: str) -> Any:
+        raise NotImplementedError("TODO")
+
+    def _parse_response(self, response: Any) -> tuple[str, str, dict]:
+        raise NotImplementedError("TODO")

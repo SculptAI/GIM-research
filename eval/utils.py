@@ -36,7 +36,7 @@ def _add_sample_args(parser):
         "--presence_penalty",
         type=float,
         default=1.0,
-        help="Frequency penalty for the model",
+        help="Presence penalty for the model",
     )
     parser.add_argument(
         "--max_tokens",
