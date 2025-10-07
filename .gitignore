@@ -168,3 +168,6 @@ unsloth_compiled_cache/
 
 # JSONL files temporarily saved from scripts under datasets
 data/
+
+# Evaluation
+results/
