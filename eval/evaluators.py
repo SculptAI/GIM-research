@@ -55,9 +55,7 @@ class BaseEvaluator:
         self.args = args
 
     @abstractmethod
-    def _form_cot_query(
-        question: str, choices: list[str], reason_budget: int
-    ) -> str: ...
+    def _form_cot_query(self, question: str, choices: list[str]) -> str: ...
 
     @abstractmethod
     def _model_call(self, query: str) -> Any: ...
@@ -73,7 +71,7 @@ class BaseEvaluator:
             item["choices"],
             item["correct_choice"],
         )
-        query = self._form_cot_query(question, choices, self.args.reason_budget)
+        query = self._form_cot_query(question, choices)
         try:
             raw_response = self._model_call(query)
             response, model_choice, additional_info = self._parse_response(raw_response)
@@ -143,14 +141,13 @@ class GIMEvaluator(BaseEvaluator):
         openai_client = OpenAI(api_key=args.api_key, base_url=args.base_url)
         self.model = from_vllm(openai_client, model_name=args.model_name)
 
-    @staticmethod
-    def _form_cot_query(question: str, choices: list[str], reason_budget: int) -> str:
+    def _form_cot_query(self, question: str, choices: list[str]) -> str:
         reasoning_guides = [
             str(idx + 1) + ". " + g(desc="One single thinking step")
-            for idx in range(reason_budget)
+            for idx in range(self.args.reason_budget)
         ]
         prompt = f"Answer the question below.\n\nQuestion: {question}\n\n"
-        if reason_budget > 0:
+        if self.args.reason_budget > 0:
             prompt += (
                 "Let's think step by step:\n" + "\n".join(reasoning_guides) + "\n\n"
             )
@@ -179,8 +176,7 @@ class CommonEvaluator(BaseEvaluator):
     def __init__(self, args: Namespace, dataset: Dataset):
         super().__init__(args, dataset)
 
-    @staticmethod
-    def _form_cot_query(question: str, choices: list[str]) -> str:
+    def _form_cot_query(self, question: str, choices: list[str]) -> str:
         prompt = (
             "Answer the question below.\n\n"
             f"Question: {question}\n\n"
