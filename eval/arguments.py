@@ -1,6 +1,4 @@
-from argparse import ArgumentParser, Namespace
-from evaluators import CommonEvaluator, GIMEvaluator
-from datasets import Dataset
+from argparse import ArgumentParser
 
 
 def _add_model_args(parser):
@@ -65,13 +63,3 @@ def get_args():
     _add_sample_args(parser)
     _add_evaluator_args(parser)
     return parser.parse_args()
-
-
-def conduct_eval(args: Namespace, ds: Dataset):
-    print(args)
-    if args.is_gim:
-        evaluator = GIMEvaluator(args, ds)
-    else:
-        evaluator = CommonEvaluator(args, ds)
-    result = evaluator.evaluate()
-    result.dump()

@@ -1,6 +1,11 @@
 from datasets import load_dataset
-from utils import get_args, conduct_eval
+from arguments import get_args
 import random
+from log import get_logger
+from evaluators import conduct_eval
+
+
+logger = get_logger(__name__)
 
 
 def _format_gpqa(example: dict, seed: int) -> dict:
@@ -36,5 +41,7 @@ if __name__ == "__main__":
     ds = load_dataset(
         args.dataset["path"], args.dataset["name"], split=args.dataset["split"]
     ).map(lambda x: _format_gpqa(x, seed=args.seed))
+    logger.info(f"Loaded {len(ds)} samples from dataset {args.dataset}")
+    logger.info(f"First sample: {ds[0]}")
 
     conduct_eval(args, ds)

@@ -8,6 +8,9 @@ from datetime import datetime
 from argparse import Namespace
 from abc import abstractmethod
 import os
+from log import get_logger
+
+logger = get_logger(__name__)
 
 
 class EvalItemResult(BaseModel):
@@ -31,6 +34,7 @@ class EvalResult(BaseModel):
     calibrated_accuracy: float
     start_time: datetime
     end_time: datetime
+    elapsed_minutes: float = 0.0
     args: Namespace
     evaled_items: list[EvalItemResult] = []
 
@@ -47,11 +51,14 @@ class EvalResult(BaseModel):
                 else "unknown_dataset"
             )
             model_name = getattr(self.args, "model_name", "unknown_model")
-            filepath = f"results/{dataset_path}_{model_name}_{self.start_time.strftime('%y%m%d-%H%M%S')}.json"
-        filepath = filepath.replace("/", "_")
+            filename = f"{dataset_path}_{model_name}_{self.start_time.strftime('%y%m%d-%H%M%S')}.json".replace(
+                "/", "_"
+            )
+            filepath = "results/" + filename
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as f:
             f.write(self.model_dump_json(indent=4))
+        logger.info(f"Saved evaluation results to {filepath}")
 
 
 class BaseEvaluator:
@@ -84,7 +91,7 @@ class BaseEvaluator:
             conclusion = model_choice == correct_choice
             error_msg = ""
         except Exception as e:
-            print(f"Error processing item: {e}")
+            logger.error(e)
             conclusion = False
             response = "ERROR"
             model_choice = "ERROR"
@@ -101,6 +108,7 @@ class BaseEvaluator:
         )
 
     def evaluate(self) -> EvalResult:
+        logger.info(f"Starting evaluation with config: {self.args}")
         total = (
             len(self.dataset)
             if self.args.first_n == -1
@@ -123,10 +131,11 @@ class BaseEvaluator:
         calibrated_accuracy = (
             corrects / (evaluates - errors) if (evaluates - errors) > 0 else 0.0
         )
-        print(
+        logger.info(
             f"Final accuracy over {total} examples: {corrects}/{total} = {accuracy:.4f}"
         )
         self.end_time = datetime.now()
+        logger.info(f"Evaluation completed at {self.end_time}")
         return EvalResult(
             total=total,
             evaluates=evaluates,
@@ -136,6 +145,7 @@ class BaseEvaluator:
             calibrated_accuracy=calibrated_accuracy,
             start_time=self.start_time,
             end_time=self.end_time,
+            elapsed_minutes=(self.end_time - self.start_time).total_seconds() / 60.0,
             args=self.args,
             evaled_items=evaled_items,
         )
@@ -196,3 +206,12 @@ class CommonEvaluator(BaseEvaluator):
 
     def _parse_response(self, response: Any) -> tuple[str, str, dict]:
         raise NotImplementedError("TODO")
+
+
+def conduct_eval(args: Namespace, ds: Dataset):
+    if args.is_gim:
+        evaluator = GIMEvaluator(args, ds)
+    else:
+        evaluator = CommonEvaluator(args, ds)
+    result = evaluator.evaluate()
+    result.dump()
