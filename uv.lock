@@ -999,7 +999,7 @@ train = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "gimkit", specifier = ">=0.1.0a1" }]
+requires-dist = [{ name = "gimkit", specifier = ">=0.1.0a3" }]
 
 [package.metadata.requires-dev]
 dataset = [{ name = "datasets", specifier = "==3.6.0" }]
@@ -1016,14 +1016,14 @@ train = [
 
 [[package]]
 name = "gimkit"
-version = "0.1.0a1"
+version = "0.1.0a3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "outlines", extra = ["openai"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/1c/e32e0ad4b1348a46a799e80d5aff822659b7f08743d92b6defdb1f2fe9d9/gimkit-0.1.0a1.tar.gz", hash = "sha256:82a0e0ded76f6e38971af44a4214ef705bf2d6dcdf106184dbc1b1a82573773d", size = 8546, upload-time = "2025-10-03T17:56:37.491Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/f8/fd66c0a81782c2f8658c33c5d5c9352cb13f586716d625306aaef06629ed/gimkit-0.1.0a3.tar.gz", hash = "sha256:f12815266499da3c7d0742cbd2892b83d4deaf98fe6f38929f1dd5b0556292ad", size = 8609, upload-time = "2025-10-07T10:19:08.13Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/04/ed98612d57a9af525607f3690413d2958c7df09f26e7d21ca2319f084aed/gimkit-0.1.0a1-py3-none-any.whl", hash = "sha256:a26b8fc14c70218489b42e9665bdc11e8d86493089d7a54664bdb48c9487c3d5", size = 11884, upload-time = "2025-10-03T17:56:36.319Z" },
+    { url = "https://files.pythonhosted.org/packages/db/cc/5b2be3f679edad63a2436c207d804e3e13da8e5a627f38f75b2801f4166c/gimkit-0.1.0a3-py3-none-any.whl", hash = "sha256:8a9f912705389eeb29aaf210e3cb1029875ea9cf258c8242ec5d6be9d709abb5", size = 11969, upload-time = "2025-10-07T10:19:07.143Z" },
 ]
 
 [[package]]
