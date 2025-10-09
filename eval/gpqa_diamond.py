@@ -23,7 +23,7 @@ def _format_gpqa(example: dict, seed: int) -> dict:
 
     question_with_answer_options = f"{question}\n\nChoices:\n"
     for i, idx in enumerate(indices):
-        question_with_answer_options += f"({chr(ord('A') + i)}) {answers[idx]}\n"
+        question_with_answer_options += f"{chr(ord('A') + i)}. {answers[idx]}\n"
 
     letter_choices = [chr(ord("A") + i) for i in range(len(answers))]
     correct_choice = chr(ord("A") + indices.index(0))
