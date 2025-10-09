@@ -139,7 +139,9 @@ class BaseEvaluator:
             errors=errors,
             accuracy=accuracy,
             calibrated_accuracy=calibrated_accuracy,
-            avg_response_len=sum(item.response_len for item in evaled_items if item.response_len != -1) / evaluates if evaluates > 0 else 0.0,
+            avg_response_len=sum(item.response_len for item in evaled_items if item.response_len != -1) / evaluates
+            if evaluates > 0
+            else 0.0,
             start_time=self.start_time,
             end_time=self.end_time,
             elapsed_minutes=(self.end_time - self.start_time).total_seconds() / 60.0,
