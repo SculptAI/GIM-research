@@ -10,13 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from datasets import Dataset
+from gimkit import Result, from_vllm
+from gimkit import guide as g
 from log import get_logger
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
-
-from gimkit import Result, from_vllm
-from gimkit import guide as g
 
 
 GIT_COMMIT_ID = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
