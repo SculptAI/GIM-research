@@ -40,9 +40,15 @@ class EvalResult(BaseModel):
 
     def dump(self, filepath: str = None):
         if filepath is None:
-            filepath = f"{self.args.dataset['path']}_{self.args.model_name}_{self.start_time.strftime('%y%m%d-%H%M%S')}_result.json"
-        # sanitize filename
-        filepath = "results/" + filepath.replace("/", "_")
+            dataset = getattr(self.args, "dataset", {})
+            dataset_path = (
+                dataset.get("path", "unknown_dataset")
+                if isinstance(dataset, dict)
+                else "unknown_dataset"
+            )
+            model_name = getattr(self.args, "model_name", "unknown_model")
+            filepath = f"results/{dataset_path}_{model_name}_{self.start_time.strftime('%y%m%d-%H%M%S')}.json"
+        filepath = filepath.replace("/", "_")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as f:
             f.write(self.model_dump_json(indent=4))
