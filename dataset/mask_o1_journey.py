@@ -29,21 +29,11 @@ def _mask_cot_and_answer(example: dict) -> dict:
             "The short answer to the question",
         ]
     )
-    query = (
-        question
-        + "\n\n"
-        + MaskedTag(desc=long_cot_desc)
-        + "\n\n"
-        + MaskedTag(desc=answer_desc)
-    )
-    response = str(MaskedTag(id=0, content=long_cot)) + str(
-        MaskedTag(id=1, content=answer)
-    )
+    query = question + "\n\n" + MaskedTag(desc=long_cot_desc) + "\n\n" + MaskedTag(desc=answer_desc)
+    response = str(MaskedTag(id=0, content=long_cot)) + str(MaskedTag(id=1, content=answer))
     return to_gim_format(query, response)
 
 
 ds = load_dataset("GAIR/o1-journey", split="train", num_proc=os.cpu_count())
-ds = ds.map(_mask_cot_and_answer, num_proc=os.cpu_count()).select_columns(
-    [QUERY_COLUMN, RESPONSE_COLUMN]
-)
+ds = ds.map(_mask_cot_and_answer, num_proc=os.cpu_count()).select_columns([QUERY_COLUMN, RESPONSE_COLUMN])
 save_dataset(ds, __file__)

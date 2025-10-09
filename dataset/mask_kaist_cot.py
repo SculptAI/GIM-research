@@ -29,9 +29,7 @@ def _mask_rationale_and_target(example: dict) -> dict:
             ]
         )
     )
-    response = str(MaskedTag(id=0, content=example["rationale"])) + str(
-        MaskedTag(id=1, content=example["target"])
-    )
+    response = str(MaskedTag(id=0, content=example["rationale"])) + str(MaskedTag(id=1, content=example["target"]))
     return to_gim_format(query, response)
 
 
@@ -41,7 +39,5 @@ ds = load_dataset(
     trust_remote_code=True,
     num_proc=os.cpu_count(),
 )
-ds = ds.map(_mask_rationale_and_target, num_proc=os.cpu_count()).select_columns(
-    [QUERY_COLUMN, RESPONSE_COLUMN]
-)
+ds = ds.map(_mask_rationale_and_target, num_proc=os.cpu_count()).select_columns([QUERY_COLUMN, RESPONSE_COLUMN])
 save_dataset(ds, __file__)

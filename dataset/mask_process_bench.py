@@ -46,12 +46,7 @@ def _mask_process(example: dict) -> dict:
             ]
         )
     )
-    response = "".join(
-        [
-            str(MaskedTag(id=idx, content=step))
-            for idx, step in enumerate(example["steps"])
-        ]
-    )
+    response = "".join([str(MaskedTag(id=idx, content=step)) for idx, step in enumerate(example["steps"])])
     return to_gim_format(query, response)
 
 
