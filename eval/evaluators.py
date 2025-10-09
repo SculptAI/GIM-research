@@ -181,21 +181,32 @@ class GIMEvaluator(BaseEvaluator):
 class CommonEvaluator(BaseEvaluator):
     def __init__(self, args: Namespace, dataset: Dataset):
         super().__init__(args, dataset)
+        self.model = OpenAI(api_key=args.api_key, base_url=args.base_url)
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
         prompt = (
-            "Answer the question below.\n\n"
+            "Answer the question below. Remember to end with `The answer is: xxx`.\n\n"
             f"Question: {question}\n\n"
             f"Choices: {', '.join(choices)}\n\n"
             "Let's think step by step:\n"
         )
         return prompt
 
-    def _model_call(self, query: str) -> Any:
-        raise NotImplementedError("TODO")
+    def _model_call(self, query: str) -> str:
+        response = self.model.chat.completions.create(
+            model=self.args.model_name,
+            messages=[
+                {"role": "user", "content": query}
+            ]
+        )
+        return response.choices[0].message.content
 
-    def _parse_response(self, response: Any) -> tuple[str, str, dict]:
-        raise NotImplementedError("TODO")
+    def _parse_response(self, response: str) -> tuple[str, str, dict]:
+        response_str = response.strip()
+        model_choice = "ERROR"
+        if "The answer is:" in response_str:
+            model_choice = response_str.split("The answer is:")[-1].strip().split()[0]
+        return response_str, model_choice, {f'line_{i+1}': line for i, line in enumerate(response_str.splitlines())}
 
 
 def conduct_eval(args: Namespace, ds: Dataset):
