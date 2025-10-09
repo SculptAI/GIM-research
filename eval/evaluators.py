@@ -194,10 +194,7 @@ class CommonEvaluator(BaseEvaluator):
 
     def _model_call(self, query: str) -> str:
         response = self.model.chat.completions.create(
-            model=self.args.model_name,
-            messages=[
-                {"role": "user", "content": query}
-            ]
+            model=self.args.model_name, messages=[{"role": "user", "content": query}]
         )
         return response.choices[0].message.content
 
@@ -206,7 +203,7 @@ class CommonEvaluator(BaseEvaluator):
         model_choice = "ERROR"
         if "The answer is:" in response_str:
             model_choice = response_str.split("The answer is:")[-1].strip().split()[0]
-        return response_str, model_choice, {f'line_{i+1}': line for i, line in enumerate(response_str.splitlines())}
+        return response_str, model_choice, {f"line_{i + 1}": line for i, line in enumerate(response_str.splitlines())}
 
 
 def conduct_eval(args: Namespace, ds: Dataset):
