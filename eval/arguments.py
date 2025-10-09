@@ -33,7 +33,7 @@ def _add_sample_args(parser):
     parser.add_argument(
         "--max_tokens",
         type=int,
-        default=4096,
+        default=8192,
         help="Maximum tokens for the model response",
     )
 
@@ -51,6 +51,12 @@ def _add_evaluator_args(parser):
         type=int,
         default=1,
         help="Number of processes for parallel evaluation",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="results",
+        help="Directory to save evaluation results",
     )
 
 

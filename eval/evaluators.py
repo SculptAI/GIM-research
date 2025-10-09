@@ -1,20 +1,24 @@
 import os
+import re
+import subprocess
 
 from abc import abstractmethod
 from argparse import Namespace
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from datasets import Dataset
+from gimkit import Result, from_vllm
+from gimkit import guide as g
 from log import get_logger
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
 
-from gimkit import Result, from_vllm
-from gimkit import guide as g
 
+GIT_COMMIT_ID = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
 
 logger = get_logger(__name__)
 
@@ -44,6 +48,7 @@ class EvalResult(BaseModel):
     end_time: datetime
     elapsed_minutes: float = 0.0
     args: Namespace
+    git_commit_id: str = GIT_COMMIT_ID
     evaled_items: list[EvalItemResult] = []
 
     @field_serializer("args")
@@ -55,8 +60,8 @@ class EvalResult(BaseModel):
             dataset = getattr(self.args, "dataset", {})
             dataset_path = dataset.get("path", "unknown_dataset") if isinstance(dataset, dict) else "unknown_dataset"
             model_name = getattr(self.args, "model_name", "unknown_model")
-            filename = f"{dataset_path}_{model_name}_{self.start_time.strftime('%y%m%d-%H%M%S')}.json".replace("/", "_")
-            filepath = "results/" + filename
+            filename = f"{model_name}_{dataset_path}_{self.start_time.strftime('%y%m%d-%H%M%S')}.json".replace("/", "_")
+            filepath = Path(self.args.output_dir) / filename
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as f:
             f.write(self.model_dump_json(indent=4))
@@ -160,7 +165,7 @@ class GIMEvaluator(BaseEvaluator):
         reasoning_guides = [
             str(idx + 1) + ". " + g(desc="One single thinking step") for idx in range(self.args.reason_budget)
         ]
-        prompt = f"Answer the question below.\n\nQuestion: {question}\n\n"
+        prompt = f"Answer the question below. You may use reasoning, reflection, trial and error, and other strategies to find the answer.\n\nQuestion: {question}\n\n"
         if self.args.reason_budget > 0:
             prompt += "Let's think step by step:\n" + "\n".join(reasoning_guides) + "\n\n"
         prompt += "Final answer: " + g.select(choices=choices, name="predicted_choice")
@@ -179,7 +184,7 @@ class GIMEvaluator(BaseEvaluator):
     def _parse_response(self, response: Result) -> tuple[str, str, dict]:
         return (
             str(response),
-            response.tags["predicted_choice"].content.strip(),
+            response.tags["predicted_choice"].content.strip().strip("().,"),
             {tag.name or str(tag.id): tag.content for tag in response.tags},
         )
 
@@ -191,9 +196,9 @@ class CommonEvaluator(BaseEvaluator):
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
         prompt = (
-            "Answer the question below. Remember to end with `The answer is: xxx`.\n\n"
+            "Answer the question below. You may use reasoning, reflection, trial and error, and other strategies to find the answer. Remember to end with `The answer is: xxx`.\n\n"
             f"Question: {question}\n\n"
-            f"Choices: {', '.join(choices)}\n\n"
+            f"Choose from the following options: {', '.join(choices)}\n\n"
             "Let's think step by step:\n"
         )
         return prompt
@@ -207,9 +212,32 @@ class CommonEvaluator(BaseEvaluator):
     def _parse_response(self, response: str) -> tuple[str, str, dict]:
         response_str = response.strip()
         model_choice = "ERROR"
-        if "The answer is:" in response_str:
-            model_choice = response_str.split("The answer is:")[-1].strip().split()[0]
-        return response_str, model_choice, {f"line_{i + 1}": line for i, line in enumerate(response_str.splitlines())}
+        additional_info = {f"line_{i + 1}": line for i, line in enumerate(response_str.splitlines())}
+
+        # 1) Try marker-based extraction: e.g. "The answer is: A", "Final answer: (B)", "Answer: C."
+        m = re.search(r"(?:the answer is|final answer|answer)[:\s]*\(?([A-Za-z0-9]+)\)?", response_str, re.IGNORECASE)
+        if m:
+            model_choice = m.group(1).strip().rstrip(".),")
+            additional_info["extracted_by"] = "marker"
+            return response_str, model_choice, additional_info
+
+        # 2) Scan lines for a short token like "A", "(A)", "A.", "A)" at line start or alone
+        for i, line in enumerate(response_str.splitlines()):
+            s = line.strip()
+            m2 = re.match(r"^\(?([A-Za-z0-9])\)?[\.|\)]?$", s)
+            if m2:
+                model_choice = m2.group(1)
+                additional_info["extracted_by"] = f"line_scan_{i + 1}"
+                return response_str, model_choice, additional_info
+
+        # 3) As a last resort, pick the first token of the last line (useful for free-form answers)
+        last_line = response_str.splitlines()[-1] if response_str.splitlines() else response_str
+        token = last_line.strip().split()[0] if last_line.strip().split() else ""
+        if token:
+            model_choice = token.strip().strip("() .,")
+            additional_info["extracted_by"] = "last_line_first_token"
+
+        return response_str, model_choice, additional_info
 
 
 def conduct_eval(args: Namespace, ds: Dataset):
