@@ -25,6 +25,7 @@ class EvalItemResult(BaseModel):
     response: str = ""
     model_choice: str = ""
     correct_choice: str = ""
+    response_len: int = -1
     error_msg: str = ""
     additional_info: dict = {}
 
@@ -38,6 +39,7 @@ class EvalResult(BaseModel):
     errors: int
     accuracy: float
     calibrated_accuracy: float
+    avg_response_len: float
     start_time: datetime
     end_time: datetime
     elapsed_minutes: float = 0.0
@@ -103,6 +105,7 @@ class BaseEvaluator:
             response=response,
             model_choice=model_choice,
             correct_choice=correct_choice,
+            response_len=len(response),
             error_msg=error_msg,
             additional_info=additional_info,
         )
@@ -136,6 +139,7 @@ class BaseEvaluator:
             errors=errors,
             accuracy=accuracy,
             calibrated_accuracy=calibrated_accuracy,
+            avg_response_len=sum(item.response_len for item in evaled_items if item.response_len != -1) / evaluates if evaluates > 0 else 0.0,
             start_time=self.start_time,
             end_time=self.end_time,
             elapsed_minutes=(self.end_time - self.start_time).total_seconds() / 60.0,
