@@ -54,6 +54,12 @@ def _add_evaluator_args(parser):
         default=-1,
         help="Evaluate only the first n samples. -1 means all",
     )
+    parser.add_argument(
+        "--num_proc",
+        type=int,
+        default=1,
+        help="Number of processes for parallel evaluation",
+    )
 
 
 def get_args():

@@ -10,6 +10,8 @@ from abc import abstractmethod
 import os
 from log import get_logger
 
+from concurrent.futures import ThreadPoolExecutor
+
 logger = get_logger(__name__)
 
 
@@ -114,19 +116,26 @@ class BaseEvaluator:
             if self.args.first_n == -1
             else min(self.args.first_n, len(self.dataset))
         )
+
         evaled_items = []
-        evaluates = 0
-        corrects = 0
-        errors = 0
-        for idx in tqdm(range(total), desc=f"Evaluating {self.args.model_name}"):
-            item = self.dataset[idx]
-            result = self._evaluate_item(item)
-            if result.error_msg:
-                errors += 1
-            if result.conclusion:
-                corrects += 1
-            evaluates += 1
-            evaled_items.append(result)
+        if self.args.num_proc <= 1:
+            for idx in tqdm(range(total), desc=f"Evaluating {self.args.model_name}"):
+                result = self._evaluate_item(self.dataset[idx])
+                evaled_items.append(result)
+        else:
+            with ThreadPoolExecutor(max_workers=self.args.num_proc) as executor:
+                results = executor.map(
+                    self._evaluate_item, (self.dataset[i] for i in range(total))
+                )
+                evaled_items = list(
+                    tqdm(
+                        results, total=total, desc=f"Evaluating {self.args.model_name}"
+                    )
+                )
+
+        errors = sum(1 for item in evaled_items if item.error_msg)
+        corrects = sum(1 for item in evaled_items if item.conclusion)
+        evaluates = len(evaled_items)
         accuracy = corrects / evaluates if evaluates > 0 else 0.0
         calibrated_accuracy = (
             corrects / (evaluates - errors) if (evaluates - errors) > 0 else 0.0
