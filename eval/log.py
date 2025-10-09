@@ -1,4 +1,5 @@
 import logging
+
 from logging.config import dictConfig
 from pathlib import Path
 from sys import stdout
@@ -25,9 +26,7 @@ LOGGING_CONFIG = {
         "standard": {
             "format": "%(asctime)s %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s"
         },
-        "no_datetime": {
-            "format": "%(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s"
-        },
+        "no_datetime": {"format": "%(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s"},
     },
     "handlers": {
         "console": {

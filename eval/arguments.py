@@ -2,9 +2,7 @@ from argparse import ArgumentParser
 
 
 def _add_model_args(parser):
-    parser.add_argument(
-        "--model_name", type=str, default="", help="Model under evaluation"
-    )
+    parser.add_argument("--model_name", type=str, default="", help="Model under evaluation")
     parser.add_argument("--api_key", type=str, default="", help="API key for the model")
     parser.add_argument(
         "--base_url",
@@ -15,9 +13,7 @@ def _add_model_args(parser):
 
 
 def _add_gim_args(parser):
-    parser.add_argument(
-        "--is_gim", action="store_true", help="Whether to use GIM models"
-    )
+    parser.add_argument("--is_gim", action="store_true", help="Whether to use GIM models")
     parser.add_argument(
         "--reason_budget",
         type=int,
@@ -27,9 +23,7 @@ def _add_gim_args(parser):
 
 
 def _add_sample_args(parser):
-    parser.add_argument(
-        "--temperature", type=float, default=0.0, help="Temperature for the model"
-    )
+    parser.add_argument("--temperature", type=float, default=0.0, help="Temperature for the model")
     parser.add_argument(
         "--presence_penalty",
         type=float,
@@ -45,9 +39,7 @@ def _add_sample_args(parser):
 
 
 def _add_evaluator_args(parser):
-    parser.add_argument(
-        "--seed", type=int, default=16, help="Random seed for reproducibility"
-    )
+    parser.add_argument("--seed", type=int, default=16, help="Random seed for reproducibility")
     parser.add_argument(
         "--first_n",
         type=int,

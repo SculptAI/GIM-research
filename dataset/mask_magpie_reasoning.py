@@ -53,10 +53,6 @@ def _mask_some_fields(example: dict) -> dict:
     return to_gim_format(query, response)
 
 
-ds = load_dataset(
-    "Magpie-Align/Magpie-Reasoning-150K", split="train", num_proc=os.cpu_count()
-)
-ds = ds.map(_mask_some_fields, num_proc=os.cpu_count()).select_columns(
-    [QUERY_COLUMN, RESPONSE_COLUMN]
-)
+ds = load_dataset("Magpie-Align/Magpie-Reasoning-150K", split="train", num_proc=os.cpu_count())
+ds = ds.map(_mask_some_fields, num_proc=os.cpu_count()).select_columns([QUERY_COLUMN, RESPONSE_COLUMN])
 save_dataset(ds, __file__)

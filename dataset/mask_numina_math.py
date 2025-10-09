@@ -39,7 +39,5 @@ def _mask_solution(example: dict) -> dict:
 
 
 ds = load_dataset("AI-MO/NuminaMath-CoT", split="train", num_proc=os.cpu_count())
-ds = ds.map(_mask_solution, num_proc=os.cpu_count()).select_columns(
-    [QUERY_COLUMN, RESPONSE_COLUMN]
-)
+ds = ds.map(_mask_solution, num_proc=os.cpu_count()).select_columns([QUERY_COLUMN, RESPONSE_COLUMN])
 save_dataset(ds, __file__)
