@@ -2,12 +2,11 @@ import pathlib
 
 import torch
 
+
 PROJECT_NAME = "GIM-SFT"
 RUN_NAME = pathlib.Path(__file__).resolve().parent.name
 
-ARTIFACTS_DIR = (
-    pathlib.Path(__file__).resolve().parent.parent.parent / "artifacts" / RUN_NAME
-)
+ARTIFACTS_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "artifacts" / RUN_NAME
 FINAL_MODEL_DIR = ARTIFACTS_DIR / "sft-gim"
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
