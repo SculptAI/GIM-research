@@ -20,21 +20,13 @@ def _mask_internal_thinking(example: dict) -> dict:
     )
     query = random.choice(
         [
-            (
-                f"问题：{example['prompt'].strip()}\n"
-                f"思考：{MaskedTag(desc=desc)}\n"
-                f"回答：{example['answer']}"
-            ),
+            (f"问题：{example['prompt'].strip()}\n思考：{MaskedTag(desc=desc)}\n回答：{example['answer']}"),
             (
                 f"## 问题\n\n{example['prompt'].strip()}\n\n"
                 f"## 思考\n\n{MaskedTag(desc=desc)}\n\n"
                 f"## 回答\n\n{example['answer']}"
             ),
-            (
-                f"{example['prompt'].strip()}\n\n---\n\n"
-                f"{MaskedTag(desc=desc)}\n\n---\n\n"
-                f"{example['answer']}"
-            ),
+            (f"{example['prompt'].strip()}\n\n---\n\n{MaskedTag(desc=desc)}\n\n---\n\n{example['answer']}"),
         ]
     )
     response = str(MaskedTag(id=0, content=example["thinking"]))
@@ -42,7 +34,5 @@ def _mask_internal_thinking(example: dict) -> dict:
 
 
 ds = load_dataset("HKAIR-Lab/HK-O1aw-SFT-16K", split="train", num_proc=os.cpu_count())
-ds = ds.map(_mask_internal_thinking, num_proc=os.cpu_count()).select_columns(
-    [QUERY_COLUMN, RESPONSE_COLUMN]
-)
+ds = ds.map(_mask_internal_thinking, num_proc=os.cpu_count()).select_columns([QUERY_COLUMN, RESPONSE_COLUMN])
 save_dataset(ds, __file__)

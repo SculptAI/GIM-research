@@ -90,12 +90,7 @@ low_subsets = [         # 2697422 in total
 
 
 def _concat_subsets(subsets: list[str]) -> Dataset:
-    return concatenate_datasets(
-        [
-            load_dataset(configs.DATASET_NAME, subset, split="train")
-            for subset in subsets
-        ]
-    )
+    return concatenate_datasets([load_dataset(configs.DATASET_NAME, subset, split="train") for subset in subsets])
 
 
 logging.info("Loading and preparing dataset...")
@@ -104,29 +99,15 @@ if configs.DATASET_LEN - len(high_dataset) > 0:
     _rest_len = configs.DATASET_LEN - len(high_dataset)
     _mid_len = int(_rest_len * 0.6)
     _low_len = _rest_len - _mid_len
-    mid_dataset = (
-        _concat_subsets(mid_subsets)
-        .shuffle(seed=configs.RANDOM_SEED)
-        .select(range(_mid_len))
-    )
-    low_dataset = (
-        _concat_subsets(low_subsets)
-        .shuffle(seed=configs.RANDOM_SEED)
-        .select(range(_low_len))
-    )
+    mid_dataset = _concat_subsets(mid_subsets).shuffle(seed=configs.RANDOM_SEED).select(range(_mid_len))
+    low_dataset = _concat_subsets(low_subsets).shuffle(seed=configs.RANDOM_SEED).select(range(_low_len))
 
-    assert (
-        len(high_dataset) + len(mid_dataset) + len(low_dataset) == configs.DATASET_LEN
-    )
+    assert len(high_dataset) + len(mid_dataset) + len(low_dataset) == configs.DATASET_LEN
     dataset = concatenate_datasets([high_dataset, mid_dataset, low_dataset])
-    logging.info(
-        f"Dataset sizes: high {len(high_dataset)}, mid {len(mid_dataset)}, low {len(low_dataset)}"
-    )
+    logging.info(f"Dataset sizes: high {len(high_dataset)}, mid {len(mid_dataset)}, low {len(low_dataset)}")
 
 else:
-    dataset = high_dataset.shuffle(seed=configs.RANDOM_SEED).select(
-        range(configs.DATASET_LEN)
-    )
+    dataset = high_dataset.shuffle(seed=configs.RANDOM_SEED).select(range(configs.DATASET_LEN))
     logging.info(f"Dataset sizes: high {len(dataset)}")
 
 dataset = (
@@ -204,6 +185,4 @@ logging.info("Response: " + tokenizer.decode(response[0]))
 
 # ─── Save Model ───────────────────────────────────────────────────────────────
 
-model.save_pretrained_merged(
-    configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit"
-)
+model.save_pretrained_merged(configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit")

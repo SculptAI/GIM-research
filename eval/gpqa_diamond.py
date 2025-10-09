@@ -1,8 +1,9 @@
-from datasets import load_dataset
-from arguments import get_args
 import random
-from log import get_logger
+
+from arguments import get_args
+from datasets import load_dataset
 from evaluators import conduct_eval
+from log import get_logger
 
 
 logger = get_logger(__name__)
@@ -38,9 +39,9 @@ if __name__ == "__main__":
     args = get_args()
     args.dataset = {"path": "Idavidrein/gpqa", "name": "gpqa_diamond", "split": "train"}
 
-    ds = load_dataset(
-        args.dataset["path"], args.dataset["name"], split=args.dataset["split"]
-    ).map(lambda x: _format_gpqa(x, seed=args.seed))
+    ds = load_dataset(args.dataset["path"], args.dataset["name"], split=args.dataset["split"]).map(
+        lambda x: _format_gpqa(x, seed=args.seed)
+    )
     logger.info(f"Loaded {len(ds)} samples from dataset {args.dataset}")
     logger.info(f"First sample: {ds[0]}")
 

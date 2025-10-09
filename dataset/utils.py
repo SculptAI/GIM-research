@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 
 from datasets import Dataset
+from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX, RESPONSE_PREFIX, RESPONSE_SUFFIX
 
 from gimkit import MaskedTag, validate
-from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX, RESPONSE_PREFIX, RESPONSE_SUFFIX
 
 
 QUERY_COLUMN = "gim_query"
@@ -31,9 +31,7 @@ def gen_possion_masked(text: str, lam: int) -> tuple[str, str]:
         ranges = [(indices[i], indices[i + 1]) for i in range(0, len(indices), 2)]
         return ranges
 
-    def gen_gim_query_response(
-        text: str, ranges: list[tuple[int, int]]
-    ) -> tuple[str, str]:
+    def gen_gim_query_response(text: str, ranges: list[tuple[int, int]]) -> tuple[str, str]:
         query, response = "", ""
         last_end = 0
         for idx, (start, end) in enumerate(ranges):
@@ -63,13 +61,9 @@ def to_gim_format(raw_query: str, raw_response: str) -> dict[str, str]:
     return {QUERY_COLUMN: query, RESPONSE_COLUMN: response}
 
 
-def save_dataset(
-    ds: Dataset, script_path: str, save_dir: str = "data", dataset_name: str = "GIM-SFT"
-):
+def save_dataset(ds: Dataset, script_path: str, save_dir: str = "data", dataset_name: str = "GIM-SFT"):
     # Ensure the ds only has the required columns
-    assert set(ds.column_names) == set(COLUMNS), (
-        f"Dataset columns should be {COLUMNS}, got {ds.column_names}"
-    )
+    assert set(ds.column_names) == set(COLUMNS), f"Dataset columns should be {COLUMNS}, got {ds.column_names}"
 
     # Ensure the first row is valid
     validate(ds[0][QUERY_COLUMN], ds[0][RESPONSE_COLUMN])

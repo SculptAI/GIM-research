@@ -150,6 +150,4 @@ logging.info("Response: " + tokenizer.decode(response[0]))
 
 # ─── Save Model ───────────────────────────────────────────────────────────────
 
-model.save_pretrained_merged(
-    configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit"
-)
+model.save_pretrained_merged(configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit")

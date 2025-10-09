@@ -42,7 +42,5 @@ def _mask_one_remark_in_conversation(example: dict) -> dict:
 
 
 ds = load_dataset("Ki-Seki/GAIR_lima", split="train", num_proc=os.cpu_count())
-ds = ds.map(_mask_one_remark_in_conversation, num_proc=os.cpu_count()).select_columns(
-    [QUERY_COLUMN, RESPONSE_COLUMN]
-)
+ds = ds.map(_mask_one_remark_in_conversation, num_proc=os.cpu_count()).select_columns([QUERY_COLUMN, RESPONSE_COLUMN])
 save_dataset(ds, __file__)
