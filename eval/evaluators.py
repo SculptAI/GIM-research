@@ -194,11 +194,11 @@ class GIMEvaluator(BaseEvaluator):
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
         reasoning_guides = [
-            str(idx + 1) + ". " + g(desc="One single thinking step") for idx in range(self.args.reason_budget)
+            f"## Step {idx + 1}\n\n" + g(desc="One thinking step") for idx in range(self.args.reason_budget)
         ]
         prompt = SHARED_PROMPT_PREFIX + f"\n\nQuestion: {question}\n\n"
         if self.args.reason_budget > 0:
-            prompt += "Let's think step by step:\n" + "\n".join(reasoning_guides) + "\n\n"
+            prompt += "Let's think step by step.\n\n" + "\n\n".join(reasoning_guides) + "\n\n"
         prompt += "Final answer: " + g.select(choices=choices, name="predicted_choice")
         return prompt
 
