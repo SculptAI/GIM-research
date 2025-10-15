@@ -224,7 +224,7 @@ class CommonEvaluator(BaseEvaluator):
 
         # 2) Scan last line for a short token like "A", "(A)", "A.", "A)" at line start or alone
         elif m2 := re.match(r"^\(?([A-Za-z0-9])\)?[\.|\)]?$", last_line):
-            model_choice = m2.group(1)
+            model_choice = m2.group(1).strip().rstrip(".),")
             additional_info["extracted_by"] = "line_scan_last"
 
         if model_choice == "ERROR":
