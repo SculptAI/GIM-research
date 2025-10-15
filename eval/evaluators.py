@@ -183,7 +183,7 @@ class BaseEvaluator:
 SHARED_PROMPT_PREFIX = (
     "Answer the following question using a variety of strategies, such as reasoning, reflection, "
     "trial and error, and parallel thinking (applying different approaches). "
-    "Feel free to use any other methods as needed to find the best answer."
+    "Feel free to use any other methods as needed to find the correct answer."
 )
 
 class GIMEvaluator(BaseEvaluator):
@@ -199,7 +199,7 @@ class GIMEvaluator(BaseEvaluator):
         prompt = SHARED_PROMPT_PREFIX + f"\n\nQuestion: {question}\n\n"
         if self.args.reason_budget > 0:
             prompt += "Let's think step by step.\n\n" + "\n\n".join(reasoning_guides) + "\n\n"
-        prompt += "Final answer: " + g.select(choices=choices, name="predicted_choice")
+        prompt += "## Conclusion\n\nFinal answer: " + g.select(choices=choices, name="predicted_choice")
         return prompt
 
     def _model_call(self, query: str) -> Result:
