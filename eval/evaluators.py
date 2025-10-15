@@ -16,6 +16,7 @@ from log import get_logger
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
@@ -30,7 +31,12 @@ class EvalItemResult(BaseModel):
     response: str = ""
     model_choice: str = ""
     correct_choice: str = ""
+
+    query_tokens: int = -1
+    response_tokens: int = -1
+    query_len: int = -1
     response_len: int = -1
+
     error_msg: str = ""
     additional_info: dict = {}
 
@@ -44,6 +50,9 @@ class EvalResult(BaseModel):
     errors: int
     accuracy: float
     calibrated_accuracy: float
+    avg_query_tokens: float
+    avg_response_tokens: float
+    avg_query_len: float
     avg_response_len: float
     start_time: datetime
     end_time: datetime
@@ -75,6 +84,9 @@ class BaseEvaluator:
         self.start_time = datetime.now()
         self.dataset = dataset
         self.args = args
+
+        self._counter_tokenizer: PreTrainedTokenizerBase = AutoTokenizer.from_pretrained(args.counter_tokenizer)
+        logger.info(f"Loaded tokenizer {args.counter_tokenizer} for token counting.")
 
     @abstractmethod
     def _form_cot_query(self, question: str, choices: list[str]) -> str: ...
@@ -112,6 +124,9 @@ class BaseEvaluator:
             response=response,
             model_choice=model_choice,
             correct_choice=correct_choice,
+            query_tokens=self._count_tokens(query),
+            response_tokens=self._count_tokens(response) if response != "ERROR" else -1,
+            query_len=len(query),
             response_len=len(response),
             error_msg=error_msg,
             additional_info=additional_info,
@@ -139,6 +154,11 @@ class BaseEvaluator:
         logger.info(f"Final accuracy over {total} examples: {corrects}/{total} = {accuracy:.4f}")
         self.end_time = datetime.now()
         logger.info(f"Evaluation completed at {self.end_time}")
+
+        def safe_average(items: list[EvalItemResult], attr: str) -> float:
+            values = [getattr(item, attr) for item in items if getattr(item, attr) != -1]
+            return sum(values) / len(values) if values else 0.0
+
         return EvalResult(
             total=total,
             evaluates=evaluates,
@@ -146,15 +166,19 @@ class BaseEvaluator:
             errors=errors,
             accuracy=accuracy,
             calibrated_accuracy=calibrated_accuracy,
-            avg_response_len=sum(item.response_len for item in evaled_items if item.response_len != -1) / evaluates
-            if evaluates > 0
-            else 0.0,
+            avg_query_tokens=safe_average(evaled_items, "query_tokens"),
+            avg_response_tokens=safe_average(evaled_items, "response_tokens"),
+            avg_query_len=safe_average(evaled_items, "query_len"),
+            avg_response_len=safe_average(evaled_items, "response_len"),
             start_time=self.start_time,
             end_time=self.end_time,
             elapsed_minutes=(self.end_time - self.start_time).total_seconds() / 60.0,
             args=self.args,
             evaled_items=evaled_items,
         )
+
+    def _count_tokens(self, text: str) -> int:
+        return len(self._counter_tokenizer.encode(text))
 
 
 class GIMEvaluator(BaseEvaluator):

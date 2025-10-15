@@ -58,6 +58,12 @@ def _add_evaluator_args(parser):
         default="results",
         help="Directory to save evaluation results",
     )
+    parser.add_argument(
+        "--counter_tokenizer",
+        type=str,
+        default="unsloth/Qwen3-4B-Instruct-2507",
+        help="Tokenizer to use for token counting",
+    )
 
 
 def get_args():
