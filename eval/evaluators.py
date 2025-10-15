@@ -180,6 +180,11 @@ class BaseEvaluator:
     def _count_tokens(self, text: str) -> int:
         return len(self._counter_tokenizer.encode(text))
 
+SHARED_PROMPT_PREFIX = (
+    "Answer the following question using a variety of strategies, such as reasoning, reflection, "
+    "trial and error, and parallel thinking (applying different approaches). "
+    "Feel free to use any other methods as needed to find the best answer."
+)
 
 class GIMEvaluator(BaseEvaluator):
     def __init__(self, args: Namespace, dataset: Dataset):
@@ -191,7 +196,7 @@ class GIMEvaluator(BaseEvaluator):
         reasoning_guides = [
             str(idx + 1) + ". " + g(desc="One single thinking step") for idx in range(self.args.reason_budget)
         ]
-        prompt = f"Answer the question below. You may use reasoning, reflection, trial and error, and other strategies to find the answer.\n\nQuestion: {question}\n\n"
+        prompt = SHARED_PROMPT_PREFIX + f"\n\nQuestion: {question}\n\n"
         if self.args.reason_budget > 0:
             prompt += "Let's think step by step:\n" + "\n".join(reasoning_guides) + "\n\n"
         prompt += "Final answer: " + g.select(choices=choices, name="predicted_choice")
@@ -222,8 +227,8 @@ class CommonEvaluator(BaseEvaluator):
         self.model = OpenAI(api_key=args.api_key, base_url=args.base_url)
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
-        prompt = (
-            "Answer the question below. You may use reasoning, reflection, trial and error, and other strategies to find the answer. Remember to end with `The answer is: xxx`.\n\n"
+        prompt = SHARED_PROMPT_PREFIX + (
+            " Remember to end with `The answer is: xxx`.\n\n"
             f"Question: {question}\n\n"
             f"Choose from the following options: {', '.join(choices)}\n\n"
             "Let's think step by step:\n"
