@@ -81,8 +81,8 @@ class BaseEvaluator:
     def _model_call(self, query: str) -> Any: ...
 
     @abstractmethod
-    def _parse_response(self, response: Any) -> tuple[str, str, dict]:
-        """Extract the response string, model choice, and any additional info from the model response"""
+    def _parse_response(self, response: Any, validate_choices: list[str]) -> tuple[str, str, dict]:
+        """Extract the response string, model choice, and any additional info from the model response."""
         ...
 
     def _evaluate_item(self, item: dict) -> EvalItemResult:
@@ -94,7 +94,7 @@ class BaseEvaluator:
         query = self._form_cot_query(question, choices)
         try:
             raw_response = self._model_call(query)
-            response, model_choice, additional_info = self._parse_response(raw_response)
+            response, model_choice, additional_info = self._parse_response(raw_response, choices)
             conclusion = model_choice == correct_choice
             error_msg = ""
         except Exception as e:
@@ -181,12 +181,13 @@ class GIMEvaluator(BaseEvaluator):
         )
         return result
 
-    def _parse_response(self, response: Result) -> tuple[str, str, dict]:
-        return (
-            str(response),
-            response.tags["predicted_choice"].content.strip().strip("().,"),
-            {tag.name or str(tag.id): tag.content for tag in response.tags},
-        )
+    def _parse_response(self, response: Result, validate_choices: list[str]) -> tuple[str, str, dict]:
+        str_response = str(response)
+        model_choice = response.tags["predicted_choice"].content.strip().strip("().,")
+        additional_info = {tag.name or str(tag.id): tag.content for tag in response.tags}
+        if model_choice not in validate_choices:
+            raise ValueError(f"Extracted choice '{model_choice}' not in valid choices {validate_choices}")
+        return str_response, model_choice, additional_info
 
 
 class CommonEvaluator(BaseEvaluator):
@@ -209,33 +210,28 @@ class CommonEvaluator(BaseEvaluator):
         )
         return response.choices[0].message.content
 
-    def _parse_response(self, response: str) -> tuple[str, str, dict]:
+    def _parse_response(self, response: str, validate_choices: list[str]) -> tuple[str, str, dict]:
         response_str = response.strip()
         model_choice = "ERROR"
         additional_info = {f"line_{i + 1}": line for i, line in enumerate(response_str.splitlines())}
 
+        last_line = response_str.splitlines()[-1] if response_str.splitlines() else response_str
+
         # 1) Try marker-based extraction: e.g. "The answer is: A", "Final answer: (B)", "Answer: C."
-        m = re.search(r"(?:the answer is|final answer|answer)[:\s]*\(?([A-Za-z0-9]+)\)?", response_str, re.IGNORECASE)
-        if m:
+        if m := re.search(r"(?:the answer is|final answer|answer)[:\s]*\(?([A-Za-z0-9]+)\)?", last_line, re.IGNORECASE):
             model_choice = m.group(1).strip().rstrip(".),")
             additional_info["extracted_by"] = "marker"
-            return response_str, model_choice, additional_info
 
-        # 2) Scan lines for a short token like "A", "(A)", "A.", "A)" at line start or alone
-        for i, line in enumerate(response_str.splitlines()):
-            s = line.strip()
-            m2 = re.match(r"^\(?([A-Za-z0-9])\)?[\.|\)]?$", s)
-            if m2:
-                model_choice = m2.group(1)
-                additional_info["extracted_by"] = f"line_scan_{i + 1}"
-                return response_str, model_choice, additional_info
+        # 2) Scan last line for a short token like "A", "(A)", "A.", "A)" at line start or alone
+        elif m2 := re.match(r"^\(?([A-Za-z0-9])\)?[\.|\)]?$", last_line):
+            model_choice = m2.group(1).strip().rstrip(".),")
+            additional_info["extracted_by"] = "line_scan_last"
 
-        # 3) As a last resort, pick the first token of the last line (useful for free-form answers)
-        last_line = response_str.splitlines()[-1] if response_str.splitlines() else response_str
-        token = last_line.strip().split()[0] if last_line.strip().split() else ""
-        if token:
-            model_choice = token.strip().strip("() .,")
-            additional_info["extracted_by"] = "last_line_first_token"
+        if model_choice == "ERROR":
+            raise ValueError(f"Could not extract a valid choice from the model response: {response_str}")
+
+        if model_choice not in validate_choices:
+            raise ValueError(f"Extracted choice '{model_choice}' not in valid choices {validate_choices}")
 
         return response_str, model_choice, additional_info
 
