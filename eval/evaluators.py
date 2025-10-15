@@ -180,11 +180,13 @@ class BaseEvaluator:
     def _count_tokens(self, text: str) -> int:
         return len(self._counter_tokenizer.encode(text))
 
+
 SHARED_PROMPT_PREFIX = (
     "Answer the following question using a variety of strategies, such as reasoning, reflection, "
     "trial and error, and parallel thinking (applying different approaches). "
     "Feel free to use any other methods as needed to find the correct answer."
 )
+
 
 class GIMEvaluator(BaseEvaluator):
     def __init__(self, args: Namespace, dataset: Dataset):
