@@ -18,6 +18,7 @@ from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
 
 
+GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
 GIT_COMMIT_ID = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
 
 logger = get_logger(__name__)
@@ -48,6 +49,7 @@ class EvalResult(BaseModel):
     end_time: datetime
     elapsed_minutes: float = 0.0
     args: Namespace
+    git_branch: str = GIT_BRANCH
     git_commit_id: str = GIT_COMMIT_ID
     evaled_items: list[EvalItemResult] = []
 
