@@ -16,7 +16,7 @@ from log import get_logger
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
@@ -85,7 +85,7 @@ class BaseEvaluator:
         self.dataset = dataset
         self.args = args
 
-        self._counter_tokenizer = AutoTokenizer.from_pretrained(args.counter_tokenizer)
+        self._counter_tokenizer: PreTrainedTokenizerBase = AutoTokenizer.from_pretrained(args.counter_tokenizer)
         logger.info(f"Loaded tokenizer {args.counter_tokenizer} for token counting.")
 
     @abstractmethod
@@ -178,8 +178,7 @@ class BaseEvaluator:
         )
 
     def _count_tokens(self, text: str) -> int:
-        tokens = self._counter_tokenizer.encode(text, return_tensors="pt")
-        return tokens.size(1)
+        return len(self._counter_tokenizer.encode(text))
 
 
 class GIMEvaluator(BaseEvaluator):
