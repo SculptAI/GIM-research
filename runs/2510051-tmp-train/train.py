@@ -2,14 +2,21 @@ from unsloth import FastModel  # noqa: I001
 
 import logging
 import os
+import re
 
 import configs
+import torch
 
-from datasets import concatenate_datasets, load_dataset
-from trl import SFTConfig, SFTTrainer
-from unsloth.chat_templates import get_chat_template, train_on_responses_only
+from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import Query, guide
-from datasets import Dataset
+from gimkit.contexts import infill
+from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX
+from tqdm import tqdm
+from transformers import PreTrainedTokenizerBase
+from trl import SFTConfig, SFTTrainer
+from trl.extras.profiling import profiling_decorator
+
+from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 
 # ─── General Setup ────────────────────────────────────────────────────────────
@@ -30,13 +37,93 @@ for key, value in vars(configs).items():
     if not key.startswith("__"):
         logging.info(f"{key} = {value}")
 
+
+# ─── Custom PPL Metric ────────────────────────────────────────────────────────
+
+# Load reference model for PPL evaluation
+ref_model, ref_tokenizer = FastModel.from_pretrained(
+    model_name=configs.REF_MODEL_NAME,
+    max_seq_length=configs.MAX_SEQ_LENGTH,
+    load_in_4bit=configs.QUANT_BITS == 4,
+    load_in_8bit=configs.QUANT_BITS == 8,
+)
+
+
+class SFTTrainerWithCTP(SFTTrainer):
+    @profiling_decorator
+    def evaluate(
+        self,
+        eval_dataset: Dataset | dict[str, Dataset] | None = None,
+        ignore_keys: list[str] | None = None,
+        metric_key_prefix: str = "eval",
+    ) -> dict[str, float]:
+        # <copied from transformers.trainer>
+        # handle multiple eval datasets
+        override = eval_dataset is not None
+        eval_dataset = eval_dataset if override else self.eval_dataset
+        if isinstance(eval_dataset, dict):
+            metrics = {}
+            for eval_dataset_name, _eval_dataset in eval_dataset.items():
+                dataset_metrics = self.evaluate(
+                    eval_dataset=_eval_dataset if override else eval_dataset_name,
+                    ignore_keys=ignore_keys,
+                    metric_key_prefix=f"{metric_key_prefix}_{eval_dataset_name}",
+                )
+                metrics.update(dataset_metrics)
+            return metrics
+        # </copied from transformers.trainer>
+
+        # run original evaluation
+        eval_output = super().evaluate(eval_dataset, ignore_keys, metric_key_prefix)
+
+        logging.info("Calculating Composite Text Perplexity (CTP) with reference model...")
+
+        ctps = []
+        for example in tqdm(eval_dataset, desc="CTP Calculation"):
+            if not (query_match := re.search(f"({re.escape(QUERY_PREFIX)}.*?{re.escape(QUERY_SUFFIX)})", example["text"], re.DOTALL)):
+                continue
+            query = query_match.group(1).strip()
+            self.processing_class: PreTrainedTokenizerBase
+            prompt = self.processing_class.apply_chat_template(
+                [{"role": "user", "content": query}],
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            inputs = self.processing_class(prompt, return_tensors="pt").to(self.model.device)
+
+            # Generate response with the model being trained
+            response_ids = self.model.generate(
+                **inputs, max_length=configs.MAX_SEQ_LENGTH, pad_token_id=self.processing_class.eos_token_id
+            )
+            generated_text = self.processing_class.decode(
+                response_ids[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
+            )
+            infilled = infill(query, generated_text)
+
+            # Calculate PPL with reference model
+            encodings = ref_tokenizer(infilled, return_tensors="pt", padding=True, truncation=True).to(
+                ref_model.device
+            )
+            with torch.no_grad():
+                outputs = ref_model(**encodings, labels=encodings.input_ids)
+            ppl = torch.exp(outputs.loss)
+            ctps.append(ppl.item())
+
+        if ctps:
+            avg_ctp = sum(ctps) / len(ctps)
+            eval_output[f"{metric_key_prefix}_ctp"] = avg_ctp
+            logging.info(f"Average CTP with reference model: {avg_ctp:.2f}")
+
+        return eval_output
+
+
 # ─── Load Model And Tokenizer ─────────────────────────────────────────────────
 
 model, tokenizer = FastModel.from_pretrained(
     model_name=configs.BASE_MODEL_NAME,
     max_seq_length=configs.MAX_SEQ_LENGTH,
-    load_in_4bit=True,
-    load_in_8bit=False,
+    load_in_4bit=configs.QUANT_BITS == 4,
+    load_in_8bit=configs.QUANT_BITS == 8,
     full_finetuning=False,
     token=None,
 )
@@ -131,7 +218,7 @@ dataset = (
 
 # ─── Training ─────────────────────────────────────────────────────────────────
 
-trainer = SFTTrainer(
+trainer = SFTTrainerWithCTP(
     model=model,
     tokenizer=tokenizer,
     train_dataset=dataset.select(range(configs.TRAIN_SIZE)),
