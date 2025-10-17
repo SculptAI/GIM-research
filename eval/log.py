@@ -8,17 +8,6 @@ from sys import stdout
 APP_NAME = "GIMEval"
 
 
-def _setup_logfile() -> Path:
-    """ensure the logger filepath is in place
-
-    Returns: the logfile Path
-    """
-    logfile = Path("results/eval.log")
-    logfile.parent.mkdir(parents=True, exist_ok=True)
-    logfile.touch(exist_ok=True)
-    return logfile
-
-
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -38,7 +27,7 @@ LOGGING_CONFIG = {
         "file": {
             "level": "DEBUG",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": _setup_logfile(),
+            "filename": None,
             "maxBytes": 1024**2 * 10,
             "backupCount": 10,
             "formatter": "standard",
@@ -54,11 +43,25 @@ LOGGING_CONFIG = {
 }
 
 
-def get_logger(name: str | None = None) -> logging.Logger:
+def get_logger(name: str | None = None, log_dir: str = ".", log_filename: str = "eval.log") -> logging.Logger:
     """returns the project logger, scoped to a child name if provided
     Args:
         name: will define a child logger
     """
+
+    def _setup_logfile(log_dir: str = ".", log_filename: str = "eval.log") -> Path:
+        """ensure the logger filepath is in place
+
+        Returns: the logfile Path
+        """
+        logfile = Path(log_dir) / log_filename
+        logfile.parent.mkdir(parents=True, exist_ok=True)
+        logfile.touch(exist_ok=True)
+        return logfile
+
+    logfile = _setup_logfile(log_dir, log_filename)
+    LOGGING_CONFIG["handlers"]["file"]["filename"] = str(logfile)
+
     dictConfig(LOGGING_CONFIG)
 
     parent_logger = logging.getLogger(APP_NAME)
