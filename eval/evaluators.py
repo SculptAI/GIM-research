@@ -196,7 +196,8 @@ class GIMEvaluator(BaseEvaluator):
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
         reasoning_guides = [
-            f"## Step {idx + 1}\n\n" + g(desc="One thinking step. About 60 words") for idx in range(self.args.reason_budget)
+            f"## Step {idx + 1}\n\n" + g(desc="One thinking step. About 60 words")
+            for idx in range(self.args.reason_budget)
         ]
         prompt = SHARED_PROMPT_PREFIX + f"\n\nQuestion: {question}\n\n"
         if self.args.reason_budget > 0:
