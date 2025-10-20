@@ -2,21 +2,21 @@ from unsloth import FastModel  # noqa: I001
 
 import logging
 import os
-import re
 
 import configs
-import torch
+
+from typing import TYPE_CHECKING
 
 from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import Query, guide
 from gimkit.contexts import infill
-from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX
-from tqdm import tqdm
-from transformers import PreTrainedTokenizerBase
 from trl import SFTConfig, SFTTrainer
 from trl.extras.profiling import profiling_decorator
 
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
+
+if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizerBase
 
 
 # ─── General Setup ────────────────────────────────────────────────────────────
@@ -38,18 +38,32 @@ for key, value in vars(configs).items():
         logging.info(f"{key} = {value}")
 
 
-# ─── Custom PPL Metric ────────────────────────────────────────────────────────
-
-# Load reference model for PPL evaluation
-ref_model, ref_tokenizer = FastModel.from_pretrained(
-    model_name=configs.REF_MODEL_NAME,
-    max_seq_length=configs.MAX_SEQ_LENGTH,
-    load_in_4bit=configs.QUANT_BITS == 4,
-    load_in_8bit=configs.QUANT_BITS == 8,
-)
+# ─── Infilling Ratio Metric ───────────────────────────────────────────────────
 
 
-class SFTTrainerWithCTP(SFTTrainer):
+QUERY = Query("""<|MASKED|><|/MASKED|> License
+
+Copyright <|MASKED|><|/MASKED|> [year] [fullname]
+
+<|MASKED|><|/MASKED|> is hereby granted, free of charge, to any person obtaining a copy
+of <|MASKED|><|/MASKED|> software and associated documentation files (the <|MASKED|><|/MASKED|>Software"), to deal
+in the Software <|MASKED|><|/MASKED|> restriction, including without limitation the rights
+to <|MASKED|><|/MASKED|>, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies <|MASKED|><|/MASKED|> the <|MASKED|><|/MASKED|>, and to permit persons to whom the Software is
+furnished to do so, subject to the following <|MASKED|><|/MASKED|><|MASKED|><|/MASKED|>
+
+<|MASKED|><|/MASKED|>
+
+<|MASKED|><|/MASKED|> SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS <|MASKED|><|/MASKED|> A <|MASKED|><|/MASKED|> PURPOSE AND <|MASKED|><|/MASKED|>. IN NO <|MASKED|><|/MASKED|> SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, <|MASKED|><|/MASKED|> OR OTHERWISE, ARISING FROM,
+OUT <|MASKED|><|/MASKED|> OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.""")
+
+
+class SFTTrainerWithCustomMetrics(SFTTrainer):
     @profiling_decorator
     def evaluate(
         self,
@@ -76,44 +90,30 @@ class SFTTrainerWithCTP(SFTTrainer):
         # run original evaluation
         eval_output = super().evaluate(eval_dataset, ignore_keys, metric_key_prefix)
 
-        logging.info("Calculating Composite Text Perplexity (CTP) with reference model...")
+        # generate response with the model being trained
+        self.processing_class: PreTrainedTokenizerBase
+        prompt = self.processing_class.apply_chat_template(
+            [{"role": "user", "content": str(QUERY)}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        inputs = self.processing_class(prompt, return_tensors="pt").to(self.model.device)
+        response_ids = self.model.generate(
+            **inputs, max_length=configs.MAX_SEQ_LENGTH, pad_token_id=self.processing_class.eos_token_id
+        )
+        response = self.processing_class.decode(
+            response_ids[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
 
-        ctps = []
-        for example in tqdm(eval_dataset, desc="CTP Calculation"):
-            if not (query_match := re.search(f"({re.escape(QUERY_PREFIX)}.*?{re.escape(QUERY_SUFFIX)})", example["text"], re.DOTALL)):
-                continue
-            query = query_match.group(1).strip()
-            self.processing_class: PreTrainedTokenizerBase
-            prompt = self.processing_class.apply_chat_template(
-                [{"role": "user", "content": query}],
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-            inputs = self.processing_class(prompt, return_tensors="pt").to(self.model.device)
+        # compute infilling ratio
+        infilled = infill(QUERY, response)
+        infilling_ratio = 1 - len(infilled.tags) / len(QUERY.tags)
 
-            # Generate response with the model being trained
-            response_ids = self.model.generate(
-                **inputs, max_length=configs.MAX_SEQ_LENGTH, pad_token_id=self.processing_class.eos_token_id
-            )
-            generated_text = self.processing_class.decode(
-                response_ids[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
-            )
-            infilled = infill(query, generated_text)
-
-            # Calculate PPL with reference model
-            encodings = ref_tokenizer(infilled, return_tensors="pt", padding=True, truncation=True).to(
-                ref_model.device
-            )
-            with torch.no_grad():
-                outputs = ref_model(**encodings, labels=encodings.input_ids)
-            ppl = torch.exp(outputs.loss)
-            ctps.append(ppl.item())
-
-        if ctps:
-            avg_ctp = sum(ctps) / len(ctps)
-            eval_output[f"{metric_key_prefix}_ctp"] = avg_ctp
-            logging.info(f"Average CTP with reference model: {avg_ctp:.2f}")
-
+        logging.info(f"Average Infilling Ratio: {infilling_ratio:.4f}")
+        logging.info(f"Original Query: {QUERY}")
+        logging.info(f"Infilling Result: {infilled}")
+        eval_output[f"{metric_key_prefix}_infilling_ratio"] = infilling_ratio
+        self.log(eval_output)
         return eval_output
 
 
@@ -218,7 +218,7 @@ dataset = (
 
 # ─── Training ─────────────────────────────────────────────────────────────────
 
-trainer = SFTTrainerWithCTP(
+trainer = SFTTrainerWithCustomMetrics(
     model=model,
     tokenizer=tokenizer,
     train_dataset=dataset.select(range(configs.TRAIN_SIZE)),

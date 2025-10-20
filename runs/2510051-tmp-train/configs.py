@@ -13,7 +13,6 @@ ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 RANDOM_SEED = 0
 
 BASE_MODEL_NAME = "unsloth/Qwen3-0.6B"
-REF_MODEL_NAME = "unsloth/Qwen3-0.6B"
 MAX_SEQ_LENGTH = 4096
 QUANT_BITS = 4
 
