@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 def _format_qasc(example: dict, seed: int) -> dict:
     question = example["question"].strip()
-    answers = example["choices"]['text']
+    answers = example["choices"]["text"]
     indices = list(range(len(answers)))
     random.seed(seed + hash(question))
     random.shuffle(indices)
@@ -24,7 +24,7 @@ def _format_qasc(example: dict, seed: int) -> dict:
         question_with_answer_options += f"{chr(ord('A') + i)}. {answers[idx]}\n"
 
     letter_choices = [chr(ord("A") + i) for i in range(len(answers))]
-    correct_choice = chr(ord("A") + indices.index(ord(example["answerKey"]) - ord('A')))
+    correct_choice = chr(ord("A") + indices.index(ord(example["answerKey"]) - ord("A")))
 
     return {
         "question": question_with_answer_options,
