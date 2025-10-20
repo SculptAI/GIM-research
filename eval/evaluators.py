@@ -12,11 +12,12 @@ from typing import Any
 from datasets import Dataset
 from gimkit import Result, from_vllm
 from gimkit import guide as g
-from log import get_logger
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
+
+from eval.log import get_logger
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")

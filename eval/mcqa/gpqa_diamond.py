@@ -1,9 +1,10 @@
 import random
 
-from arguments import get_args
 from datasets import load_dataset
-from evaluators import conduct_eval
-from log import get_logger
+
+from eval.arguments import get_args
+from eval.evaluators import conduct_eval
+from eval.log import get_logger
 
 
 logger = get_logger(__name__)
