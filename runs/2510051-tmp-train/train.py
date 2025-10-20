@@ -10,13 +10,15 @@ import torch
 from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import Query, guide
 from gimkit.contexts import infill
+from gimkit.exceptions import InvalidFormatError
 from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX
 from tqdm import tqdm
-from transformers import PreTrainedTokenizerBase
-from trl import SFTConfig, SFTTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase
+from trl import SFTConfig, SFTTrainer, create_reference_model
 from trl.extras.profiling import profiling_decorator
 
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
+import requests
 
 
 # ─── General Setup ────────────────────────────────────────────────────────────
@@ -26,7 +28,7 @@ os.environ["WANDB_DIR"] = str(configs.ARTIFACTS_DIR / "wandb")
 os.environ["WANDB_LOG_MODEL"] = "checkpoint"
 
 logging.basicConfig(
-    filename=configs.ARTIFACTS_DIR / "training.log",
+    filename="train.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -40,13 +42,16 @@ for key, value in vars(configs).items():
 
 # ─── Custom PPL Metric ────────────────────────────────────────────────────────
 
-# Load reference model for PPL evaluation
-ref_model, ref_tokenizer = FastModel.from_pretrained(
-    model_name=configs.REF_MODEL_NAME,
-    max_seq_length=configs.MAX_SEQ_LENGTH,
-    load_in_4bit=configs.QUANT_BITS == 4,
-    load_in_8bit=configs.QUANT_BITS == 8,
-)
+def compute_ppl_via_server(text: str, server_url: str = configs.PPL_URL) -> float:
+    payload = {"text": text}
+
+    resp = requests.post(server_url, json=payload)
+
+    if resp.status_code == 200:
+        return resp.json().get("ppl", 0.0)
+    else:
+        logging.error(f"PPL server error {resp.status_code}: {resp.text}")
+        return 0.0
 
 
 class SFTTrainerWithCTP(SFTTrainer):
@@ -95,24 +100,27 @@ class SFTTrainerWithCTP(SFTTrainer):
             response_ids = self.model.generate(
                 **inputs, max_length=configs.MAX_SEQ_LENGTH, pad_token_id=self.processing_class.eos_token_id
             )
-            generated_text = self.processing_class.decode(
+            response = self.processing_class.decode(
                 response_ids[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
             )
-            infilled = infill(query, generated_text)
+            try:
+                infilled = infill(query, response).to_string(fields=[])
+            except InvalidFormatError:
+                continue
 
             # Calculate PPL with reference model
-            encodings = ref_tokenizer(infilled, return_tensors="pt", padding=True, truncation=True).to(
-                ref_model.device
-            )
-            with torch.no_grad():
-                outputs = ref_model(**encodings, labels=encodings.input_ids)
-            ppl = torch.exp(outputs.loss)
-            ctps.append(ppl.item())
+            ppl = compute_ppl_via_server(infilled)
+            if ppl > 0:
+                ctps.append(ppl)
 
         if ctps:
             avg_ctp = sum(ctps) / len(ctps)
             eval_output[f"{metric_key_prefix}_ctp"] = avg_ctp
+            self.log(eval_output)
             logging.info(f"Average CTP with reference model: {avg_ctp:.2f}")
+            logging.info(f"Last query: {query}")
+            logging.info(f"Last response: {response}")
+            logging.info(f"Last infilled: {infilled}")
 
         return eval_output
 
