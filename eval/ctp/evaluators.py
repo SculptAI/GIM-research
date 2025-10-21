@@ -11,7 +11,7 @@ import torch
 
 from datasets import Dataset
 from gimkit import from_vllm
-from gimkit.contexts import Query, Response
+from gimkit.contexts import Query, Result
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
@@ -28,11 +28,11 @@ logger = get_logger(__name__)
 
 class EvalItemResult(BaseModel):
     query: str = ""
-    response: str = ""
+    result: str = ""
 
     ctp: float = -1.0
     query_tags: int = -1
-    response_tags: int = -1
+    result_tags: int = -1
     infilling_ratio: float = -1.0
 
     error_msg: str = ""
@@ -49,7 +49,7 @@ class EvalResult(BaseModel):
 
     avg_ctp: float = 0.0
     avg_query_tags: float = 0.0
-    avg_response_tags: float = 0.0
+    avg_result_tags: float = 0.0
     avg_infilling_ratio: float = 0.0
 
     start_time: datetime
@@ -97,22 +97,23 @@ class BaseEvaluator:
 
     def _evaluate_item(self, item: dict) -> EvalItemResult:
         try:
-            query = item["gim_query"]
-            response = self._model_call(query)
-            ctp = self._compute_ctp(response)
+            query = str(Query(item["gim_query"]))
+            result = self._model_call(query)
+            ctp = self._compute_ctp(result)
             error_msg = ""
         except Exception as e:
-            logger.error(e)
-            response = "ERROR"
+            logger.exception(e)
+            result = "ERROR"
+            ctp = -1.0
             error_msg = str(e)
         return EvalItemResult(
             query=query,
-            response=response,
+            result=result,
             ctp=ctp,
             query_tags=len(Query(query).tags),
-            response_tags=len(Response(response).tags),
-            infilling_ratio=len(Response(response).infillings) / len(Query(query).infillings)
-            if Query(query).infillings
+            result_tags=len(Result(result).tags),
+            infilling_ratio=(1 - len(Result(result).tags) / len(Query(query).tags))
+            if len(Query(query).tags) > 0
             else -1.0,
             error_msg=error_msg,
         )
@@ -139,7 +140,7 @@ class BaseEvaluator:
             errors=sum(1 for item in evaled_items if item.error_msg),
             avg_ctp=safe_average(evaled_items, "ctp"),
             avg_query_tags=safe_average(evaled_items, "query_tags"),
-            avg_response_tags=safe_average(evaled_items, "response_tags"),
+            avg_result_tags=safe_average(evaled_items, "result_tags"),
             avg_infilling_ratio=safe_average(evaled_items, "infilling_ratio"),
             start_time=self.start_time,
             end_time=self.end_time,
@@ -163,7 +164,7 @@ class GIMEvaluator(BaseEvaluator):
             seed=self.args.seed,
             max_tokens=self.args.max_tokens,
         )
-        return result.to_string(fields=[])
+        return str(result)
 
     def _compute_ctp(self, text: str) -> float:
         tokens = self.ref_tokenizer(text, return_tensors="pt").input_ids.to(self.args.ref_model_device)
@@ -172,3 +173,11 @@ class GIMEvaluator(BaseEvaluator):
             loss = outputs.loss
         perplexity = torch.exp(loss).item()
         return perplexity
+
+
+def conduct_eval(args: Namespace, ds: Dataset):
+    if not args.is_gim:
+        raise NotImplementedError("Only GIM evaluation is implemented in this evaluator.")
+    evaluator = GIMEvaluator(args, ds)
+    result = evaluator.evaluate()
+    result.dump()

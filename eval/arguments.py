@@ -68,7 +68,7 @@ def _add_evaluator_args(parser):
 
 def _add_ctp_eval_args(parser):
     parser.add_argument(
-        "--ref_model",
+        "--ref_model_name",
         type=str,
         default="gpt2",
         help="Reference model for Composite Text Perplexity (CTP) evaluation",

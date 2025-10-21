@@ -7,6 +7,7 @@
 # #(allenai/qasc/validation) = 920
 
 make serve model_path=artifacts/09251-gim-sft-tmp/sft-gim
+python -m eval.ctp.gim_sft --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --ref_model_device cpu --first_n 100
 python -m eval.mcqa.gpqa_diamond --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget 2 --num_proc 40 --first_n 198
 python -m eval.mcqa.gpqa_diamond --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget 4 --num_proc 40 --first_n 198
 python -m eval.mcqa.gpqa_diamond --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget 6 --num_proc 40 --first_n 198
