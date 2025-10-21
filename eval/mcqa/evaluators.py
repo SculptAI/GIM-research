@@ -45,6 +45,8 @@ class EvalItemResult(BaseModel):
 class EvalResult(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
+    evaluator_type: str = "mcqa"
+
     total: int
     evaluates: int
     corrects: int
