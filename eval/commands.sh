@@ -1,6 +1,7 @@
 # !/bin/bash
 
 # Count of examples in each dataset split:
+# #(Sculpt-AI/GIM-SFT/*/train) = 3157829
 # #(Idavidrein/gpqa/gpqa_diamond/train) = 198
 # #(openlifescienceai/medmcqa/validation) = 4183
 # #(TIGER-Lab/MMLU-Pro/test) = 12102
