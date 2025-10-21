@@ -88,7 +88,7 @@ class BaseEvaluator:
         self.ref_tokenizer = AutoTokenizer.from_pretrained(args.ref_model_name)
 
     @abstractmethod
-    def _model_call(self, query: str) -> Any:
+    def _model_call(self, query: str) -> str:
         """Call the model with the given query and return the response."""
 
     @abstractmethod
