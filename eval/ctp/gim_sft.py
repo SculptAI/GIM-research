@@ -1,6 +1,5 @@
 # https://huggingface.co/datasets/Sculpt-AI/GIM-SFT
 
-
 from datasets import concatenate_datasets, load_dataset
 
 from eval.arguments import get_args
@@ -28,11 +27,17 @@ if __name__ == "__main__":
             "numina_math",
         ],
         "split": "train",
+        "max_per_subset": 200,
     }
 
     ds = (
         concatenate_datasets(
-            [load_dataset(args.dataset["path"], subset, split=args.dataset["split"]) for subset in args.dataset["name"]]
+            [
+                load_dataset(args.dataset["path"], subset, split=args.dataset["split"]).select(
+                    range(args.dataset["max_per_subset"])
+                )
+                for subset in args.dataset["name"]
+            ]
         )
         .shuffle(seed=args.seed)
         .select_columns(["gim_query"])
