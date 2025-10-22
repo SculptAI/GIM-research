@@ -1,17 +1,20 @@
+# https://huggingface.co/datasets/openlifescienceai/medmcqa
+
 import random
 
-from arguments import get_args
 from datasets import load_dataset
-from evaluators import conduct_eval
-from log import get_logger
+
+from eval.arguments import get_args
+from eval.log import get_logger
+from eval.mcqa.evaluators import conduct_eval
 
 
 logger = get_logger(__name__)
 
 
-def _format_mmlu_pro(example: dict, seed: int) -> dict:
+def _format_medmcqa(example: dict, seed: int) -> dict:
     question = example["question"].strip()
-    answers = example["options"]
+    answers = [example["opa"], example["opb"], example["opc"], example["opd"]]
     indices = list(range(len(answers)))
     random.seed(seed + hash(question))
     random.shuffle(indices)
@@ -21,7 +24,7 @@ def _format_mmlu_pro(example: dict, seed: int) -> dict:
         question_with_answer_options += f"{chr(ord('A') + i)}. {answers[idx]}\n"
 
     letter_choices = [chr(ord("A") + i) for i in range(len(answers))]
-    correct_choice = chr(ord("A") + indices.index(example["answer_index"]))
+    correct_choice = chr(ord("A") + indices.index(example["cop"]))
 
     return {
         "question": question_with_answer_options,
@@ -32,10 +35,10 @@ def _format_mmlu_pro(example: dict, seed: int) -> dict:
 
 if __name__ == "__main__":
     args = get_args()
-    args.dataset = {"path": "TIGER-Lab/MMLU-Pro", "name": None, "split": "test"}
+    args.dataset = {"path": "openlifescienceai/medmcqa", "name": None, "split": "validation"}
 
     ds = load_dataset(args.dataset["path"], args.dataset["name"], split=args.dataset["split"]).map(
-        lambda x: _format_mmlu_pro(x, seed=args.seed)
+        lambda x: _format_medmcqa(x, seed=args.seed)
     )
     logger.info(f"Loaded {len(ds)} samples from dataset {args.dataset}")
     logger.info(f"First sample: {ds[0]}")

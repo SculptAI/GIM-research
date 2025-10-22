@@ -5,9 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from datasets import Dataset
-from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX, RESPONSE_PREFIX, RESPONSE_SUFFIX
-
-from gimkit import MaskedTag, validate
+from gimkit.schemas import QUERY_PREFIX, QUERY_SUFFIX, RESPONSE_PREFIX, RESPONSE_SUFFIX, MaskedTag, validate
 
 
 QUERY_COLUMN = "gim_query"

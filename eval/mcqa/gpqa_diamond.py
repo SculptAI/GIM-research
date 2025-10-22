@@ -1,9 +1,12 @@
+# https://huggingface.co/datasets/Idavidrein/gpqa
+
 import random
 
-from arguments import get_args
 from datasets import load_dataset
-from evaluators import conduct_eval
-from log import get_logger
+
+from eval.arguments import get_args
+from eval.log import get_logger
+from eval.mcqa.evaluators import conduct_eval
 
 
 logger = get_logger(__name__)

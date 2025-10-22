@@ -8,7 +8,8 @@ import configs
 from datasets import concatenate_datasets, load_dataset
 from trl import SFTConfig, SFTTrainer
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
-from gimkit import Query, guide
+from gimkit import guide
+from gimkit.contexts import Query
 from datasets import Dataset
 
 

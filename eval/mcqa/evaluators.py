@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import Any
 
 from datasets import Dataset
-from gimkit import Result, from_vllm
-from gimkit import guide as g
-from log import get_logger
+from gimkit import from_vllm, guide
+from gimkit.contexts import Result
 from openai import OpenAI
 from pydantic import BaseModel, field_serializer
 from tqdm import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
+
+from eval.log import get_logger
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
@@ -43,6 +44,8 @@ class EvalItemResult(BaseModel):
 
 class EvalResult(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
+
+    evaluator_type: str = "mcqa"
 
     total: int
     evaluates: int
@@ -196,12 +199,13 @@ class GIMEvaluator(BaseEvaluator):
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
         reasoning_guides = [
-            f"## Step {idx + 1}\n\n" + g(desc="One thinking step. About 60 words") for idx in range(self.args.reason_budget)
+            f"## Step {idx + 1}\n\n" + guide(desc="One thinking step. About 60 words")
+            for idx in range(self.args.reason_budget)
         ]
         prompt = SHARED_PROMPT_PREFIX + f"\n\nQuestion: {question}\n\n"
         if self.args.reason_budget > 0:
             prompt += "Let's think step by step.\n\n" + "\n\n".join(reasoning_guides) + "\n\n"
-        prompt += "## Conclusion\n\nFinal answer: " + g.select(choices=choices, name="predicted_choice")
+        prompt += "## Conclusion\n\nFinal answer: " + guide.select(choices=choices, name="predicted_choice")
         return prompt
 
     def _model_call(self, query: str) -> Result:
