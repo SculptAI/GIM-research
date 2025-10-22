@@ -42,13 +42,12 @@ if __name__ == "__main__":
     for result_file in Path(args.output_dir).glob("*.json"):
         with open(result_file) as f:
             result = json.load(f)
+            # `mcqa` is for backward compatibility
+            evaluator_type = result.get("evaluator_type", "mcqa")
             for field in args.exclude_fields:
                 if field in result:
                     del result[field]
             result = {"filename": result_file.name} | result
-
-            # `mcqa` is for backward compatibility
-            evaluator_type = result.get("evaluator_type", "mcqa")
             all_results[evaluator_type].append(result)
 
     for evaluator_type, results in all_results.items():
