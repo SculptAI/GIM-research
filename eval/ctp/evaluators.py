@@ -96,15 +96,19 @@ class BaseEvaluator:
         """Compute Composite Text Perplexity (CTP) for the given text."""
 
     def _evaluate_item(self, item: dict) -> EvalItemResult:
+        result = "ERROR"
+        ctp = -1.0
+        error_msg = ""
         try:
             query = str(Query(item["gim_query"]))
             result = self._model_call(query)
             ctp = self._compute_ctp(result)
-            error_msg = ""
+        except IndexError:
+            err_msg = f"{self.args.model_name}'s context window may be too small for CTP evaluation."
+            logger.error(err_msg)
+            error_msg = err_msg
         except Exception as e:
             logger.exception(e)
-            result = "ERROR"
-            ctp = -1.0
             error_msg = str(e)
         return EvalItemResult(
             query=query,
