@@ -13,7 +13,7 @@ python -m eval.ctp.gim_sft --model_name artifacts/09251-gim-sft-tmp/sft-gim --is
 for BUDGET in {2..18..2}; do python -m eval.mcqa.gpqa_diamond --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 198; done
 for BUDGET in {2..18..2}; do python -m eval.mcqa.medmcqa --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 1000; done
 for BUDGET in {2..18..2}; do python -m eval.mcqa.mmlu_pro --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 1000; done
-for BUDGET in {2..18..2}; do python -m eval.mcqa.qasc --model_name unsloth/Qwen3-4B-Instruct-2507 --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 920; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.qasc --model_name artifacts/09251-gim-sft-tmp/sft-gim --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 920; done
 
 make serve model_path=unsloth/Qwen3-4B-Instruct-2507
 python -m eval.mcqa.gpqa_diamond --model_name unsloth/Qwen3-4B-Instruct-2507 --num_proc 40 --first_n 198
