@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 # ─── General Setup ────────────────────────────────────────────────────────────
 
 os.environ["WANDB_PROJECT"] = configs.PROJECT_NAME
-os.environ["WANDB_DIR"] = str(configs.ARTIFACTS_DIR / "wandb")
+os.environ["WANDB_DIR"] = configs.ARTIFACTS_DIR
 os.environ["WANDB_LOG_MODEL"] = "checkpoint"
 
 logging.basicConfig(
