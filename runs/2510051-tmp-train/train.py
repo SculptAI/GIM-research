@@ -202,15 +202,12 @@ num_low = configs.DATASET_LEN - num_high - num_mid
 
 logging.info("Loading and preparing dataset...")
 rng = random.Random(configs.RANDOM_SEED)
-high_dataset = (
-    _concat_subsets(high_subsets).shuffle(seed=configs.RANDOM_SEED).select(rng.choices(range(num_high), k=num_high))
-)
-mid_dataset = (
-    _concat_subsets(mid_subsets).shuffle(seed=configs.RANDOM_SEED).select(rng.choices(range(num_mid), k=num_mid))
-)
-low_dataset = (
-    _concat_subsets(low_subsets).shuffle(seed=configs.RANDOM_SEED).select(rng.choices(range(num_low), k=num_low))
-)
+high_dataset = _concat_subsets(high_subsets).shuffle(seed=configs.RANDOM_SEED)
+mid_dataset = _concat_subsets(mid_subsets).shuffle(seed=configs.RANDOM_SEED)
+low_dataset = _concat_subsets(low_subsets).shuffle(seed=configs.RANDOM_SEED)
+high_dataset = high_dataset.select(rng.choices(range(len(high_dataset)), k=num_high))
+mid_dataset = mid_dataset.select(rng.choices(range(len(mid_dataset)), k=num_mid))
+low_dataset = low_dataset.select(rng.choices(range(len(low_dataset)), k=num_low))
 dataset = concatenate_datasets([high_dataset, mid_dataset, low_dataset]).shuffle(seed=configs.RANDOM_SEED)
 
 assert len(dataset) == configs.DATASET_LEN, f"{len(dataset)=}, {configs.DATASET_LEN=}"
