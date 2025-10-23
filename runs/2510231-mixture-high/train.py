@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import guide
 from gimkit.contexts import Query, infill
+from gimkit.exceptions import InvalidFormatError
 from trl import SFTConfig, SFTTrainer
 from trl.extras.profiling import profiling_decorator
 
