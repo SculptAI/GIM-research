@@ -2,6 +2,7 @@ import csv
 import json
 
 from argparse import ArgumentParser
+from collections import defaultdict
 from pathlib import Path
 
 from log import get_logger
@@ -37,14 +38,17 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    all_results = []
+    all_results = defaultdict(list)
     for result_file in Path(args.output_dir).glob("*.json"):
         with open(result_file) as f:
             result = json.load(f)
+            # `mcqa` is for backward compatibility
+            evaluator_type = result.get("evaluator_type", "mcqa")
             for field in args.exclude_fields:
                 if field in result:
                     del result[field]
             result = {"filename": result_file.name} | result
-            all_results.append(result)
+            all_results[evaluator_type].append(result)
 
-    to_csv(all_results, Path(args.output_dir) / "aggregated_results.csv")
+    for evaluator_type, results in all_results.items():
+        to_csv(results, Path(args.output_dir) / f"aggregated_results_{evaluator_type}.csv")
