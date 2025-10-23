@@ -4,12 +4,12 @@ import logging
 import os
 
 import configs
-
+import random
 from typing import TYPE_CHECKING
 
 from datasets import Dataset, concatenate_datasets, load_dataset
-from gimkit import Query, guide
-from gimkit.contexts import infill
+from gimkit import guide
+from gimkit.contexts import Query, infill
 from trl import SFTConfig, SFTTrainer
 from trl.extras.profiling import profiling_decorator
 
@@ -155,7 +155,26 @@ tokenizer = get_chat_template(
     chat_template="qwen3-instruct",
 )
 
+
 # ─── Load Dataset ─────────────────────────────────────────────────────────────
+
+
+def _concat_subsets(subsets: list[str]) -> Dataset:
+    return concatenate_datasets([load_dataset(configs.DATASET_NAME, subset, split="train") for subset in subsets])
+
+
+def _build_chat_example(example: dict) -> dict:
+    return {
+        "text": tokenizer.apply_chat_template(
+            [
+                {"role": "user", "content": example["gim_query"]},
+                {"role": "assistant", "content": example["gim_response"]},
+            ],
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+    }
+
 
 # fmt: off
 high_subsets = [        # 23294 in total
@@ -176,45 +195,29 @@ low_subsets = [         # 2697422 in total
 ]
 # fmt: on
 
-
-def _concat_subsets(subsets: list[str]) -> Dataset:
-    return concatenate_datasets([load_dataset(configs.DATASET_NAME, subset, split="train") for subset in subsets])
-
+total_proportion = configs.HIGH_SUBSETS_PROPORTION + configs.MID_SUBSETS_PROPORTION + configs.LOW_SUBSETS_PROPORTION
+num_high = int(configs.DATASET_LEN * configs.HIGH_SUBSETS_PROPORTION / total_proportion)
+num_mid = int(configs.DATASET_LEN * configs.MID_SUBSETS_PROPORTION / total_proportion)
+num_low = configs.DATASET_LEN - num_high - num_mid
 
 logging.info("Loading and preparing dataset...")
-high_dataset = _concat_subsets(high_subsets)
-if configs.DATASET_LEN - len(high_dataset) > 0:
-    _rest_len = configs.DATASET_LEN - len(high_dataset)
-    _mid_len = int(_rest_len * 0.6)
-    _low_len = _rest_len - _mid_len
-    mid_dataset = _concat_subsets(mid_subsets).shuffle(seed=configs.RANDOM_SEED).select(range(_mid_len))
-    low_dataset = _concat_subsets(low_subsets).shuffle(seed=configs.RANDOM_SEED).select(range(_low_len))
-
-    assert len(high_dataset) + len(mid_dataset) + len(low_dataset) == configs.DATASET_LEN
-    dataset = concatenate_datasets([high_dataset, mid_dataset, low_dataset])
-    logging.info(f"Dataset sizes: high {len(high_dataset)}, mid {len(mid_dataset)}, low {len(low_dataset)}")
-
-else:
-    dataset = high_dataset.shuffle(seed=configs.RANDOM_SEED).select(range(configs.DATASET_LEN))
-    logging.info(f"Dataset sizes: high {len(dataset)}")
-
-dataset = (
-    dataset.shuffle(seed=configs.RANDOM_SEED)
-    .map(
-        lambda example: {
-            "text": tokenizer.apply_chat_template(
-                [
-                    {"role": "user", "content": example["gim_query"]},
-                    {"role": "assistant", "content": example["gim_response"]},
-                ],
-                tokenize=False,
-                add_generation_prompt=False,
-            )
-        },
-        num_proc=os.cpu_count(),
-    )
-    .select_columns(["text"])
+rng = random.Random(configs.RANDOM_SEED)
+high_dataset = (
+    _concat_subsets(high_subsets).shuffle(seed=configs.RANDOM_SEED).select(rng.choices(range(num_high), k=num_high))
 )
+mid_dataset = (
+    _concat_subsets(mid_subsets).shuffle(seed=configs.RANDOM_SEED).select(rng.choices(range(num_mid), k=num_mid))
+)
+low_dataset = (
+    _concat_subsets(low_subsets).shuffle(seed=configs.RANDOM_SEED).select(rng.choices(range(num_low), k=num_low))
+)
+dataset = concatenate_datasets([high_dataset, mid_dataset, low_dataset]).shuffle(seed=configs.RANDOM_SEED)
+
+assert len(dataset) == configs.DATASET_LEN, f"{len(dataset)=}, {configs.DATASET_LEN=}"
+logging.info(f"Number of training samples: high={len(high_dataset)}, mid={len(mid_dataset)}, low={len(low_dataset)}")
+
+dataset = dataset.map(_build_chat_example, num_proc=os.cpu_count()).select_columns(["text"])
+
 
 # ─── Training ─────────────────────────────────────────────────────────────────
 
@@ -233,7 +236,7 @@ trainer = SFTTrainerWithCustomMetrics(
         num_train_epochs=1,  # Set this for 1 full training run.
         max_steps=-1,
         warmup_steps=configs.WARMUP_STEPS,
-        learning_rate=2e-4,  # Reduce to 2e-5 for long training runs
+        learning_rate=configs.LEARNING_RATE,
         lr_scheduler_type="cosine",
         logging_steps=1,
         save_steps=configs.SAVE_STEPS,
