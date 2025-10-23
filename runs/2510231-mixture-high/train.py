@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 # ─── General Setup ────────────────────────────────────────────────────────────
 
 os.environ["WANDB_PROJECT"] = configs.PROJECT_NAME
-os.environ["WANDB_DIR"] = configs.ARTIFACTS_DIR
+os.environ["WANDB_DIR"] = str(configs.ARTIFACTS_DIR)
 os.environ["WANDB_LOG_MODEL"] = "checkpoint"
 
 logging.basicConfig(
@@ -106,7 +106,11 @@ class SFTTrainerWithCustomMetrics(SFTTrainer):
         )
 
         # compute infilling ratio
-        infilled = infill(QUERY, response)
+        try:
+            infilled = infill(QUERY, response)
+        except InvalidFormatError as e:
+            logging.exception(f"Infilling failed: {e}")
+            infilled = QUERY
         infilling_ratio = 1 - len(infilled.tags) / len(QUERY.tags)
 
         logging.info(f"Average Infilling Ratio: {infilling_ratio:.4f}")
