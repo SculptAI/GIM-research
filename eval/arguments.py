@@ -15,6 +15,11 @@ def _add_model_args(parser):
 def _add_gim_args(parser):
     parser.add_argument("--is_gim", action="store_true", help="Whether to use GIM models")
     parser.add_argument(
+        "--is_gim_prompt",
+        action="store_true",
+        help="Whether to use GIM Prompt models",
+    )
+    parser.add_argument(
         "--reason_budget",
         type=int,
         default=0,
