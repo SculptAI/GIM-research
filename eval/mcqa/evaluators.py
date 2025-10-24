@@ -7,17 +7,19 @@ from argparse import Namespace
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
 from datasets import Dataset
 from gimkit import from_vllm, guide
-from gimkit.contexts import Result
-from openai import OpenAI
+from gimkit.contexts import Query, Result
+from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, field_serializer
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 from tqdm import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from eval.log import get_logger
+from eval.prompts import GIM_PROMPT_MSGS
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
@@ -228,46 +230,23 @@ class GIMEvaluator(BaseEvaluator):
 
 
 class GIMPromptEvaluator(GIMEvaluator):
-    sys_and_demos: ClassVar[list[dict[str, str]]] = [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant that fills in masked words given context and descriptions. Return only the completed text without any extra explanations.",
-        },
-        {
-            "role": "user",
-            "content": '<|GIM_QUERY|>Hello, <|MASKED id="m_0" desc="a simple phrase"|><|/MASKED|>.<|/GIM_QUERY|>',
-        },
-        {
-            "role": "assistant",
-            "content": '<|GIM_RESPONSE|><|MASKED id="m_0"|>nice to meet you<|/MASKED|><|/GIM_RESPONSE|>',
-        },
-        {
-            "role": "user",
-            "content": '<|GIM_QUERY|><|MASKED id="m_0" desc="a number"|><|/MASKED|> + <|MASKED id="m_1" desc="a number"|><|/MASKED|> = <|MASKED id="m_2" desc="a number"|><|/MASKED|><|/GIM_QUERY|>',
-        },
-        {
-            "role": "assistant",
-            "content": '<|GIM_RESPONSE|><|MASKED id="m_0"|>1<|/MASKED|><|MASKED id="m_1"|>1<|/MASKED|><|MASKED id="m_2"|>2<|/MASKED|><|/GIM_RESPONSE|>',
-        },
-        {
-            "role": "user",
-            "content": '<|GIM_QUERY|>The capital of <|MASKED id="m_0" desc="a word"|><|/MASKED|> is Paris<|MASKED id="m_1" desc="punctuation mark"|><|/MASKED|><|/GIM_QUERY|>',
-        },
-        {
-            "role": "assistant",
-            "content": '<|GIM_RESPONSE|><|MASKED id="m_0"|>France<|/MASKED|><|MASKED id="m_1"|>.<|/MASKED|><|/GIM_RESPONSE|>',
-        },
-    ]
-
     def __init__(self, args: Namespace, dataset: Dataset):
         super().__init__(args, dataset)
         self.client = OpenAI(api_key=args.api_key, base_url=args.base_url)
 
+    @retry(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_random_exponential(multiplier=1, max=60),
+        stop=stop_after_attempt(5),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Rate limit exceeded. Retrying... (attempt {retry_state.attempt_number})"
+        ),
+    )
     def _model_call(self, query: str) -> Result:
         completion = self.client.chat.completions.create(
-            model=self.args.model_name,
+            model="Qwen/Qwen3-235B-A22B-Instruct-2507",
             messages=[
-                *self.sys_and_demos,
+                *GIM_PROMPT_MSGS,
                 {"role": "user", "content": query},
             ],
             temperature=self.args.temperature,
@@ -277,7 +256,9 @@ class GIMPromptEvaluator(GIMEvaluator):
             n=1,
         )
 
-        return completion.choices[0].message.content
+        raw_response = completion.choices[0].message.content
+        result = Query(query).infill(raw_response)
+        return result
 
 
 class CommonEvaluator(BaseEvaluator):

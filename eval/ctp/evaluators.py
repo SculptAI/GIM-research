@@ -12,12 +12,14 @@ import torch
 from datasets import Dataset
 from gimkit import from_vllm
 from gimkit.contexts import Query, Result
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, field_serializer
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from eval.log import get_logger
+from eval.prompts import GIM_PROMPT_MSGS
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
@@ -179,9 +181,45 @@ class GIMEvaluator(BaseEvaluator):
         return perplexity
 
 
+class GIMPromptEvaluator(GIMEvaluator):
+    def __init__(self, args: Namespace, dataset: Dataset):
+        super().__init__(args, dataset)
+        self.client = OpenAI(api_key=args.api_key, base_url=args.base_url)
+
+    @retry(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_random_exponential(multiplier=1, max=60),
+        stop=stop_after_attempt(5),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Rate limit exceeded. Retrying... (attempt {retry_state.attempt_number})"
+        ),
+    )
+    def _model_call(self, query: str) -> str:
+        completion = self.client.chat.completions.create(
+            model="Qwen/Qwen3-235B-A22B-Instruct-2507",
+            messages=[
+                *GIM_PROMPT_MSGS,
+                {"role": "user", "content": query},
+            ],
+            temperature=self.args.temperature,
+            presence_penalty=self.args.presence_penalty,
+            seed=self.args.seed,
+            max_tokens=self.args.max_tokens,
+            n=1,
+        )
+
+        raw_response = completion.choices[0].message.content
+        result = Query(query).infill(raw_response)
+        return str(result)
+
+
 def conduct_eval(args: Namespace, ds: Dataset):
-    if not args.is_gim:
-        raise NotImplementedError("Only GIM evaluation is implemented in this evaluator.")
-    evaluator = GIMEvaluator(args, ds)
+    assert not (args.is_gim and args.is_gim_prompt), "Cannot set both is_gim and is_gim_prompt to True."
+    if args.is_gim:
+        evaluator = GIMEvaluator(args, ds)
+    elif args.is_gim_prompt:
+        evaluator = GIMPromptEvaluator(args, ds)
+    else:
+        raise NotImplementedError("Either is_gim or is_gim_prompt must be set to True.")
     result = evaluator.evaluate()
     result.dump()

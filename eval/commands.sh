@@ -21,5 +21,6 @@ python -m eval.mcqa.medmcqa --model_name unsloth/Qwen3-4B-Instruct-2507 --num_pr
 python -m eval.mcqa.mmlu_pro --model_name unsloth/Qwen3-4B-Instruct-2507 --num_proc 40 --first_n 1000
 python -m eval.mcqa.qasc --model_name unsloth/Qwen3-4B-Instruct-2507 --num_proc 40 --first_n 920
 
-make serve model_path=unsloth/Qwen3-4B-Instruct-2507
-python -m eval.mcqa.gpqa_diamond --model_name unsloth/Qwen3-4B-Instruct-2507 --is_gim_prompt --reason_budget 2 --num_proc 10 --first_n 198
+export OPENAI_API_KEY="sk-..."
+python -m eval.ctp.gim_sft --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --is_gim_prompt --ref_model_device cpu --first_n 100
+python -m eval.mcqa.gpqa_diamond --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --is_gim_prompt --reason_budget 2 --num_proc 10 --first_n 198
