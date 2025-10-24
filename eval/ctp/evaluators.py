@@ -64,7 +64,12 @@ class EvalResult(BaseModel):
 
     @field_serializer("args")
     def serialize_args(self, value: Namespace) -> dict[str, Any]:
-        return vars(value)
+        secret_keys = {"api_key"}
+        args = vars(value).copy()
+        for key in secret_keys:
+            if key in args:
+                args[key] = "****"
+        return args
 
     def dump(self, filepath: str | None = None):
         if filepath is None:
