@@ -11,7 +11,7 @@ from typing import Any
 
 from datasets import Dataset
 from gimkit import from_vllm, guide
-from gimkit.contexts import Query, Result
+from gimkit.contexts import Result
 from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, field_serializer
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
@@ -19,7 +19,6 @@ from tqdm import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from eval.log import get_logger
-from eval.prompts import GIM_PROMPT_MSGS
 
 
 GIT_BRANCH = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
@@ -199,10 +198,11 @@ SHARED_PROMPT_PREFIX = (
 
 
 class GIMEvaluator(BaseEvaluator):
-    def __init__(self, args: Namespace, dataset: Dataset):
+    def __init__(self, args: Namespace, dataset: Dataset, use_gim_prompt: bool = False):
         super().__init__(args, dataset)
         openai_client = OpenAI(api_key=args.api_key, base_url=args.base_url)
         self.model = from_vllm(openai_client, model_name=args.model_name)
+        self.use_gim_prompt = use_gim_prompt
 
     def _form_cot_query(self, question: str, choices: list[str]) -> str:
         reasoning_guides = [
@@ -215,9 +215,22 @@ class GIMEvaluator(BaseEvaluator):
         prompt += "## Conclusion\n\nFinal answer: " + guide.select(choices=choices, name="predicted_choice")
         return prompt
 
+    @retry(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_random_exponential(multiplier=4, max=120),
+        stop=stop_after_attempt(20),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Rate limit exceeded. Retrying... (attempt {retry_state.attempt_number})"
+        ),
+    )
     def _model_call(self, query: str) -> Result:
+        if not self.use_gim_prompt:
+            other_params = {"output_type": None, "use_gim_prompt": False}
+        if self.use_gim_prompt:
+            other_params = {"output_type": None, "use_gim_prompt": True}
         result = self.model(
             query,
+            **other_params,
             temperature=self.args.temperature,
             presence_penalty=self.args.presence_penalty,
             seed=self.args.seed,
@@ -232,38 +245,6 @@ class GIMEvaluator(BaseEvaluator):
         if model_choice not in validate_choices:
             raise ValueError(f"Extracted choice '{model_choice}' not in valid choices {validate_choices}")
         return str_response, model_choice, additional_info
-
-
-class GIMPromptEvaluator(GIMEvaluator):
-    def __init__(self, args: Namespace, dataset: Dataset):
-        super().__init__(args, dataset)
-        self.client = OpenAI(api_key=args.api_key, base_url=args.base_url)
-
-    @retry(
-        retry=retry_if_exception_type(RateLimitError),
-        wait=wait_random_exponential(multiplier=4, max=120),
-        stop=stop_after_attempt(20),
-        before_sleep=lambda retry_state: logger.warning(
-            f"Rate limit exceeded. Retrying... (attempt {retry_state.attempt_number})"
-        ),
-    )
-    def _model_call(self, query: str) -> Result:
-        completion = self.client.chat.completions.create(
-            model="Qwen/Qwen3-235B-A22B-Instruct-2507",
-            messages=[
-                *GIM_PROMPT_MSGS,
-                {"role": "user", "content": query},
-            ],
-            temperature=self.args.temperature,
-            presence_penalty=self.args.presence_penalty,
-            seed=self.args.seed,
-            max_tokens=self.args.max_tokens,
-            n=1,
-        )
-
-        raw_response = completion.choices[0].message.content
-        result = Query(query).infill(raw_response)
-        return result
 
 
 class CommonEvaluator(BaseEvaluator):
@@ -313,11 +294,11 @@ class CommonEvaluator(BaseEvaluator):
 
 
 def conduct_eval(args: Namespace, ds: Dataset):
-    assert not (args.is_gim and args.is_gim_prompt), "Cannot set both is_gim and is_gim_prompt to True."
+    assert not (args.is_gim and args.use_gim_prompt), "Cannot set both is_gim and use_gim_prompt to True."
     if args.is_gim:
         evaluator = GIMEvaluator(args, ds)
-    elif args.is_gim_prompt:
-        evaluator = GIMPromptEvaluator(args, ds)
+    elif args.use_gim_prompt:
+        evaluator = GIMEvaluator(args, ds, use_gim_prompt=True)
     else:
         evaluator = CommonEvaluator(args, ds)
     result = evaluator.evaluate()
