@@ -241,8 +241,8 @@ class GIMPromptEvaluator(GIMEvaluator):
 
     @retry(
         retry=retry_if_exception_type(RateLimitError),
-        wait=wait_random_exponential(multiplier=1, max=60),
-        stop=stop_after_attempt(5),
+        wait=wait_random_exponential(multiplier=4, max=120),
+        stop=stop_after_attempt(20),
         before_sleep=lambda retry_state: logger.warning(
             f"Rate limit exceeded. Retrying... (attempt {retry_state.attempt_number})"
         ),
