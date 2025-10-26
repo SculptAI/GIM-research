@@ -58,6 +58,27 @@ def _add_evaluator_args(parser):
         default="results",
         help="Directory to save evaluation results",
     )
+    parser.add_argument(
+        "--counter_tokenizer",
+        type=str,
+        default="unsloth/Qwen3-4B-Instruct-2507",
+        help="Tokenizer to use for token counting",
+    )
+
+
+def _add_ctp_eval_args(parser):
+    parser.add_argument(
+        "--ref_model_name",
+        type=str,
+        default="gpt2",
+        help="Reference model for Composite Text Perplexity (CTP) evaluation",
+    )
+    parser.add_argument(
+        "--ref_model_device",
+        type=str,
+        default="cpu",
+        help="Device for the reference model",
+    )
 
 
 def get_args():
@@ -66,4 +87,5 @@ def get_args():
     _add_gim_args(parser)
     _add_sample_args(parser)
     _add_evaluator_args(parser)
+    _add_ctp_eval_args(parser)
     return parser.parse_args()

@@ -2,9 +2,8 @@ import os
 import random
 
 from datasets import load_dataset
+from gimkit.schemas import MaskedTag
 from utils import QUERY_COLUMN, RESPONSE_COLUMN, save_dataset, to_gim_format
-
-from gimkit import MaskedTag
 
 
 random.seed(0)
