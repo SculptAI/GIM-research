@@ -2,22 +2,15 @@ from unsloth import FastModel  # noqa: I001
 
 import logging
 import os
+import random
 
 import configs
-import random
-from typing import TYPE_CHECKING
 
 from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import guide
-from gimkit.contexts import Query, infill
-from gimkit.exceptions import InvalidFormatError
+from gimkit.contexts import Query
 from trl import SFTConfig, SFTTrainer
-from trl.extras.profiling import profiling_decorator
-
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
-
-if TYPE_CHECKING:
-    from transformers import PreTrainedTokenizerBase
 
 
 # ─── General Setup ────────────────────────────────────────────────────────────
@@ -37,89 +30,6 @@ logging.info("Training configurations:")
 for key, value in vars(configs).items():
     if not key.startswith("__"):
         logging.info(f"{key} = {value}")
-
-
-# ─── Infilling Ratio Metric ───────────────────────────────────────────────────
-
-
-QUERY = Query("""<|MASKED|><|/MASKED|> License
-
-Copyright <|MASKED|><|/MASKED|> [year] [fullname]
-
-<|MASKED|><|/MASKED|> is hereby granted, free of charge, to any person obtaining a copy
-of <|MASKED|><|/MASKED|> software and associated documentation files (the <|MASKED|><|/MASKED|>Software"), to deal
-in the Software <|MASKED|><|/MASKED|> restriction, including without limitation the rights
-to <|MASKED|><|/MASKED|>, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies <|MASKED|><|/MASKED|> the <|MASKED|><|/MASKED|>, and to permit persons to whom the Software is
-furnished to do so, subject to the following <|MASKED|><|/MASKED|><|MASKED|><|/MASKED|>
-
-<|MASKED|><|/MASKED|>
-
-<|MASKED|><|/MASKED|> SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS <|MASKED|><|/MASKED|> A <|MASKED|><|/MASKED|> PURPOSE AND <|MASKED|><|/MASKED|>. IN NO <|MASKED|><|/MASKED|> SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, <|MASKED|><|/MASKED|> OR OTHERWISE, ARISING FROM,
-OUT <|MASKED|><|/MASKED|> OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.""")
-
-
-class SFTTrainerWithCustomMetrics(SFTTrainer):
-    @profiling_decorator
-    def evaluate(
-        self,
-        eval_dataset: Dataset | dict[str, Dataset] | None = None,
-        ignore_keys: list[str] | None = None,
-        metric_key_prefix: str = "eval",
-    ) -> dict[str, float]:
-        # <copied from transformers.trainer>
-        # handle multiple eval datasets
-        override = eval_dataset is not None
-        eval_dataset = eval_dataset if override else self.eval_dataset
-        if isinstance(eval_dataset, dict):
-            metrics = {}
-            for eval_dataset_name, _eval_dataset in eval_dataset.items():
-                dataset_metrics = self.evaluate(
-                    eval_dataset=_eval_dataset if override else eval_dataset_name,
-                    ignore_keys=ignore_keys,
-                    metric_key_prefix=f"{metric_key_prefix}_{eval_dataset_name}",
-                )
-                metrics.update(dataset_metrics)
-            return metrics
-        # </copied from transformers.trainer>
-
-        # run original evaluation
-        eval_output = super().evaluate(eval_dataset, ignore_keys, metric_key_prefix)
-
-        # generate response with the model being trained
-        self.processing_class: PreTrainedTokenizerBase
-        prompt = self.processing_class.apply_chat_template(
-            [{"role": "user", "content": str(QUERY)}],
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        inputs = self.processing_class(prompt, return_tensors="pt").to(self.model.device)
-        response_ids = self.model.generate(
-            **inputs, max_length=configs.MAX_SEQ_LENGTH, pad_token_id=self.processing_class.eos_token_id
-        )
-        response = self.processing_class.decode(
-            response_ids[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
-        )
-
-        # compute infilling ratio
-        try:
-            infilled = infill(QUERY, response)
-        except InvalidFormatError as e:
-            logging.exception(f"Infilling failed: {e}")
-            infilled = QUERY
-        infilling_ratio = 1 - len(infilled.tags) / len(QUERY.tags)
-
-        logging.info(f"Average Infilling Ratio: {infilling_ratio:.4f}")
-        logging.info(f"Original Query: {QUERY}")
-        logging.info(f"Infilling Result: {infilled}")
-        eval_output[f"{metric_key_prefix}_infilling_ratio"] = infilling_ratio
-        self.log(eval_output)
-        return eval_output
 
 
 # ─── Load Model And Tokenizer ─────────────────────────────────────────────────
@@ -223,7 +133,7 @@ dataset = dataset.map(_build_chat_example, num_proc=os.cpu_count()).select_colum
 
 # ─── Training ─────────────────────────────────────────────────────────────────
 
-trainer = SFTTrainerWithCustomMetrics(
+trainer = SFTTrainer(
     model=model,
     tokenizer=tokenizer,
     train_dataset=dataset.select(range(configs.TRAIN_SIZE)),
