@@ -44,3 +44,19 @@ for BUDGET in {2..18..2}; do python -m eval.mcqa.medmcqa --model_name artifacts/
 for BUDGET in {2..18..2}; do python -m eval.mcqa.mmlu_pro --model_name artifacts/2510233-mixture-low/sft-gim --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 1000; done
 for BUDGET in {2..18..2}; do python -m eval.mcqa.qasc --model_name artifacts/2510233-mixture-low/sft-gim --is_gim --reason_budget "$BUDGET" --num_proc 40 --first_n 920; done
 sudo shutdown -h +3
+
+export OPENAI_API_KEY="sk-..."
+python -m eval.ctp.gim_sft --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --ref_model_device cpu --first_n 100
+for BUDGET in {2..18..2}; do python -m eval.mcqa.gpqa_diamond --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 198; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.medmcqa --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 1000; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.mmlu_pro --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 1000; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.qasc --model_name Qwen/Qwen3-235B-A22B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 920; done
+sudo shutdown -h +3
+
+export OPENAI_API_KEY="sk-..."
+python -m eval.ctp.gim_sft --model_name Qwen/Qwen3-30B-A3B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --ref_model_device cpu --first_n 100
+for BUDGET in {2..18..2}; do python -m eval.mcqa.gpqa_diamond --model_name Qwen/Qwen3-30B-A3B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 198; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.medmcqa --model_name Qwen/Qwen3-30B-A3B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 1000; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.mmlu_pro --model_name Qwen/Qwen3-30B-A3B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 1000; done
+for BUDGET in {2..18..2}; do python -m eval.mcqa.qasc --model_name Qwen/Qwen3-30B-A3B-Instruct-2507 --base_url https://api.siliconflow.cn/v1 --use_gim_prompt --reason_budget "$BUDGET" --num_proc 10 --first_n 920; done
+sudo shutdown -h +3

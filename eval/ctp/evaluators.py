@@ -12,8 +12,9 @@ import torch
 from datasets import Dataset
 from gimkit import from_vllm
 from gimkit.contexts import Query, Result
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, field_serializer
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -62,7 +63,12 @@ class EvalResult(BaseModel):
 
     @field_serializer("args")
     def serialize_args(self, value: Namespace) -> dict[str, Any]:
-        return vars(value)
+        secret_keys = {"api_key"}
+        args = vars(value).copy()
+        for key in secret_keys:
+            if key in args:
+                args[key] = "****"
+        return args
 
     def dump(self, filepath: str | None = None):
         if filepath is None:
@@ -104,7 +110,7 @@ class BaseEvaluator:
             result = self._model_call(query)
             ctp = self._compute_ctp(result)
         except IndexError:
-            err_msg = f"{self.args.model_name}'s context window may be too small for CTP evaluation."
+            err_msg = f"{self.args.ref_model_name}'s context window may be too small for CTP evaluation."
             logger.error(err_msg)
             error_msg = err_msg
         except Exception as e:
@@ -155,14 +161,28 @@ class BaseEvaluator:
 
 
 class GIMEvaluator(BaseEvaluator):
-    def __init__(self, args: Namespace, dataset: Dataset):
+    def __init__(self, args: Namespace, dataset: Dataset, use_gim_prompt: bool = False):
         super().__init__(args, dataset)
         openai_client = OpenAI(api_key=args.api_key, base_url=args.base_url)
         self.model = from_vllm(openai_client, model_name=args.model_name)
+        self.use_gim_prompt = use_gim_prompt
 
+    @retry(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_random_exponential(multiplier=4, max=120),
+        stop=stop_after_attempt(20),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Rate limit exceeded. Retrying... (attempt {retry_state.attempt_number})"
+        ),
+    )
     def _model_call(self, query: str) -> str:
+        if not self.use_gim_prompt:
+            other_params = {"output_type": None, "use_gim_prompt": False}
+        if self.use_gim_prompt:
+            other_params = {"output_type": None, "use_gim_prompt": True}
         result = self.model(
             query,
+            **other_params,
             temperature=self.args.temperature,
             presence_penalty=self.args.presence_penalty,
             seed=self.args.seed,
@@ -180,8 +200,12 @@ class GIMEvaluator(BaseEvaluator):
 
 
 def conduct_eval(args: Namespace, ds: Dataset):
-    if not args.is_gim:
-        raise NotImplementedError("Only GIM evaluation is implemented in this evaluator.")
-    evaluator = GIMEvaluator(args, ds)
+    assert not (args.is_gim and args.use_gim_prompt), "Cannot set both is_gim and use_gim_prompt to True."
+    if args.is_gim:
+        evaluator = GIMEvaluator(args, ds)
+    elif args.use_gim_prompt:
+        evaluator = GIMEvaluator(args, ds, use_gim_prompt=True)
+    else:
+        raise NotImplementedError("Either is_gim or use_gim_prompt must be set to True.")
     result = evaluator.evaluate()
     result.dump()

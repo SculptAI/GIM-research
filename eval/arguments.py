@@ -1,3 +1,5 @@
+import os
+
 from argparse import ArgumentParser
 
 
@@ -14,6 +16,11 @@ def _add_model_args(parser):
 
 def _add_gim_args(parser):
     parser.add_argument("--is_gim", action="store_true", help="Whether to use GIM models")
+    parser.add_argument(
+        "--use_gim_prompt",
+        action="store_true",
+        help="Whether to use GIM Prompt models",
+    )
     parser.add_argument(
         "--reason_budget",
         type=int,
@@ -81,6 +88,12 @@ def _add_ctp_eval_args(parser):
     )
 
 
+def _post_process_args(args):
+    if not args.api_key:
+        args.api_key = os.getenv("OPENAI_API_KEY", "")
+    return args
+
+
 def get_args():
     parser = ArgumentParser()
     _add_model_args(parser)
@@ -88,4 +101,6 @@ def get_args():
     _add_sample_args(parser)
     _add_evaluator_args(parser)
     _add_ctp_eval_args(parser)
-    return parser.parse_args()
+    args = parser.parse_args()
+    args = _post_process_args(args)
+    return args
