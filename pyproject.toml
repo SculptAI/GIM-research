@@ -14,10 +14,6 @@ dev = [
     "pre-commit>=4.3.0",
     "ruff>=0.13.3",
 ]
-eval = [
-    "tenacity>=9.1.2",
-    "vllm>=0.11.0",
-]
 train = [
     "transformers==4.55.4",
     "unsloth>=2025.9.11",
