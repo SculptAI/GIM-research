@@ -193,4 +193,20 @@ logging.info("Response: " + tokenizer.decode(response[0]))
 # ─── Save Model ───────────────────────────────────────────────────────────────
 
 model.save_pretrained_merged(configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit")
-model.push_to_hub_merged("Sculpt-AI/" + configs.RUN_NAME, private=True)
+
+# ─── Upload Model ─────────────────────────────────────────────────────────────
+
+from huggingface_hub import HfApi
+
+api = HfApi()
+api.create_repo(
+    repo_id="Sculpt-AI/" + configs.RUN_NAME,
+    repo_type="model",
+    private=True,
+    exist_ok=True,
+)
+api.upload_folder(
+    folder_path=str(configs.FINAL_MODEL_DIR),
+    repo_id="Sculpt-AI/" + configs.RUN_NAME,
+    repo_type="model"
+)
