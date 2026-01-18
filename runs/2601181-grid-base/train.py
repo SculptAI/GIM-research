@@ -193,4 +193,4 @@ logging.info("Response: " + tokenizer.decode(response[0]))
 # ─── Save Model ───────────────────────────────────────────────────────────────
 
 model.save_pretrained_merged(configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit")
-model.push_to_hub("Sculpt-AI/" + configs.RUN_NAME, private=True)
+model.push_to_hub_merged("Sculpt-AI/" + configs.RUN_NAME, private=True)
