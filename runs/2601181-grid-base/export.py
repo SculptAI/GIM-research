@@ -92,7 +92,7 @@ api = HfApi()
 api.create_repo(
     repo_id="Sculpt-AI/" + configs.RUN_NAME,
     repo_type="model",
-    private=False,
+    private=True,
     exist_ok=True,
 )
 api.upload_folder(
