@@ -3,21 +3,21 @@ name = "gim-research"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "gimkit>=0.1.0a5",
+    "gimkit>=0.1.0.post1",
 ]
 
 [dependency-groups]
 dataset = [
-    "datasets==3.6.0",
+    "datasets>=4.3.0",
 ]
 dev = [
-    "pre-commit>=4.3.0",
-    "ruff>=0.13.3",
+    "pre-commit>=4.5.1",
+    "ruff>=0.14.13",
 ]
 train = [
-    "transformers==4.55.4",
-    "unsloth>=2025.9.11",
-    "wandb>=0.22.1",
+    "transformers>=4.57.6",
+    "unsloth>=2026",
+    "wandb>=0.24.0",
 ]
 
 [tool.ruff]
