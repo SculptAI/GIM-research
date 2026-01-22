@@ -64,9 +64,7 @@ logging.info("Response: " + tokenizer.decode(response[0]))
 
 model.save_pretrained_merged(configs.FINAL_MODEL_DIR, tokenizer, save_method="merged_16bit")
 
-saved_model = AutoModelForCausalLM.from_pretrained(
-    configs.FINAL_MODEL_DIR, torch_dtype="auto", device_map="auto"
-)
+saved_model = AutoModelForCausalLM.from_pretrained(configs.FINAL_MODEL_DIR, torch_dtype="auto", device_map="auto")
 saved_tokenizer = AutoTokenizer.from_pretrained(configs.FINAL_MODEL_DIR)
 
 response = saved_model.generate(
