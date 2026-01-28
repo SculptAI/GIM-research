@@ -135,7 +135,7 @@ dataset = concatenate_datasets([high_dataset, mid_dataset, low_dataset]).shuffle
 assert len(dataset) == configs.DATASET_LEN, f"{len(dataset)=}, {configs.DATASET_LEN=}"
 logging.info(f"Number of training samples: high={len(high_dataset)}, mid={len(mid_dataset)}, low={len(low_dataset)}")
 
-dataset = dataset.map(_build_chat_example, num_proc=os.cpu_count()).select_columns(["text"])
+dataset = dataset.map(_build_chat_example, num_proc=os.cpu_count() or 1).select_columns(["text"])
 
 
 # ─── Training ─────────────────────────────────────────────────────────────────
