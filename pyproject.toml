@@ -21,7 +21,7 @@ train = [
 ]
 
 [tool.ruff]
-exclude = ["runs"]
+exclude = ["runs", "runs_archived"]
 fix = true
 line-length = 120
 target-version = "py310"
