@@ -19,7 +19,7 @@ from trl import SFTConfig, SFTTrainer
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 
-# ─── General Setup ─────常规设置───────────────────────────────────────────────────────
+# ─── General Setup ────────────────────────────────────────────────────────────
 
 os.environ["WANDB_PROJECT"] = configs.PROJECT_NAME
 os.environ["WANDB_DIR"] = str(configs.ARTIFACTS_DIR)
@@ -39,7 +39,7 @@ for key, value in vars(configs).items():
         logging.info(f"{key} = {value}")
 
 
-# ─── Load Model And Tokenizer ─────────加载模型权重和分词器────────────────────────────────────────
+# ─── Load Model And Tokenizer ─────────────────────────────────────────────────
 
 model, tokenizer = FastModel.from_pretrained(
     model_name=configs.BASE_MODEL_NAME,
@@ -78,7 +78,7 @@ tokenizer = get_chat_template(
 )
 
 
-# ─── Load Dataset ───────────────────────加载数据集──────────────────────────────────────
+# ─── Load Dataset ─────────────────────────────────────────────────────────────
 
 
 def _concat_subsets(subsets: list[str]) -> Dataset:
@@ -138,7 +138,7 @@ logging.info(f"Number of training samples: high={len(high_dataset)}, mid={len(mi
 dataset = dataset.map(_build_chat_example, num_proc=os.cpu_count()).select_columns(["text"])
 
 
-# ─── Training ───────────────────────────训练──────────────────────────────────────
+# ─── Training ─────────────────────────────────────────────────────────────────
 
 trainer = SFTTrainer(
     model=model,
@@ -175,7 +175,7 @@ trainer = train_on_responses_only(
 
 trainer_stats = trainer.train()
 
-# ─── Inference ────────────────推理────────────────────────────────────────────────
+# ─── Inference ────────────────────────────────────────────────────────────────
 
 messages = [{"role": "user", "content": str(Query(f"This is an {guide()} text."))}]
 text = tokenizer.apply_chat_template(
