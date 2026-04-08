@@ -13,8 +13,6 @@ import random
 import configs
 
 from datasets import Dataset, concatenate_datasets, load_dataset
-from gimkit import guide
-from gimkit.contexts import Query
 from trl import SFTConfig, SFTTrainer
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
@@ -177,7 +175,7 @@ trainer_stats = trainer.train()
 
 # ─── Inference ────────────────────────────────────────────────────────────────
 
-messages = [{"role": "user", "content": str(Query(f"This is an {guide()} text."))}]
+messages = [{"role": "user", "content": "1 + 1 = ?"}]
 text = tokenizer.apply_chat_template(
     messages,
     tokenize=False,
