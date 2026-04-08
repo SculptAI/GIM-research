@@ -8,7 +8,7 @@ dependencies = [
 
 [dependency-groups]
 dataset = [
-    "datasets>=4.3.0",
+    "datasets==3.6.0",
 ]
 dev = [
     "pre-commit>=4.5.1",
