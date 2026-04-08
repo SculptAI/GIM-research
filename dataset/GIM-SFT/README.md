@@ -1,1 +1,1 @@
-The dataset creation pipeline code for Sculpt-AI/GIM-SFT.
+The dataset creation pipeline code for Ki-Seki/GIM-SFT.
