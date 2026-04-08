@@ -1,8 +1,9 @@
 import argparse
 import os
+
 from pathlib import Path
 
-from datasets import Dataset, load_dataset, concatenate_datasets
+from datasets import Dataset, concatenate_datasets, load_dataset
 from huggingface_hub import list_repo_files
 
 
@@ -36,9 +37,7 @@ def _load_dataset_with_parquet_fallback(dataset_id: str, split: str, num_proc: i
             f for f in repo_files if f.endswith(".parquet") and (f"/{split}-" in f or f.startswith(f"{split}-"))
         ]
         if not parquet_files:
-            raise RuntimeError(
-                f"Failed to find parquet files for split '{split}' in dataset '{dataset_id}'"
-            ) from exc
+            raise RuntimeError(f"Failed to find parquet files for split '{split}' in dataset '{dataset_id}'") from exc
 
         data_files = {split: [f"hf://datasets/{dataset_id}/{path}" for path in sorted(parquet_files)]}
         return load_dataset("parquet", data_files=data_files, split=split, num_proc=num_proc)
@@ -53,9 +52,11 @@ def _build_cnn_daily_mail(num_proc: int) -> Dataset:
             A_COLUMN: _to_text(example["highlights"]),
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_gsm8k_reasoning(num_proc: int) -> Dataset:
@@ -67,9 +68,11 @@ def _build_gsm8k_reasoning(num_proc: int) -> Dataset:
             A_COLUMN: _to_text(example["generation"]),
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_hk_o1aw(num_proc: int) -> Dataset:
@@ -78,18 +81,17 @@ def _build_hk_o1aw(num_proc: int) -> Dataset:
     def _convert(example: dict) -> dict:
         thinking = _to_text(example.get("thinking"))
         answer = _to_text(example.get("answer"))
-        if thinking and answer:
-            a_value = f"{thinking}\n\nFinal Answer:\n{answer}"
-        else:
-            a_value = thinking or answer
+        a_value = f"{thinking}\n\nFinal Answer:\n{answer}" if thinking and answer else thinking or answer
         return {
             Q_COLUMN: _to_text(example.get("prompt")),
             A_COLUMN: a_value,
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_kaist_cot(num_proc: int) -> Dataset:
@@ -103,18 +105,17 @@ def _build_kaist_cot(num_proc: int) -> Dataset:
     def _convert(example: dict) -> dict:
         rationale = _to_text(example.get("rationale"))
         target = _to_text(example.get("target"))
-        if rationale and target:
-            a_value = f"{rationale}\n\nFinal Answer:\n{target}"
-        else:
-            a_value = rationale or target
+        a_value = f"{rationale}\n\nFinal Answer:\n{target}" if rationale and target else rationale or target
         return {
             Q_COLUMN: _to_text(example.get("source")),
             A_COLUMN: a_value,
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_lima(_: int) -> Dataset:
@@ -140,9 +141,11 @@ def _build_magpie_reasoning(num_proc: int) -> Dataset:
             A_COLUMN: _to_text(example.get("response")),
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_numina_math(num_proc: int) -> Dataset:
@@ -154,9 +157,11 @@ def _build_numina_math(num_proc: int) -> Dataset:
             A_COLUMN: _to_text(example.get("solution")),
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_o1_journey(num_proc: int) -> Dataset:
@@ -167,23 +172,22 @@ def _build_o1_journey(num_proc: int) -> Dataset:
         if "####" in long_cot:
             long_cot = long_cot.split("####", maxsplit=1)[0].strip()
         answer = _to_text(example.get("answer"))
-        if long_cot and answer:
-            a_value = f"{long_cot}\n\nFinal Answer:\n{answer}"
-        else:
-            a_value = long_cot or answer
+        a_value = f"{long_cot}\n\nFinal Answer:\n{answer}" if long_cot and answer else long_cot or answer
         return {
             Q_COLUMN: _to_text(example.get("question")),
             A_COLUMN: a_value,
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_process_bench(num_proc: int) -> Dataset:
     ds_dict = load_dataset("Qwen/ProcessBench", num_proc=num_proc)
-    ds = concatenate_datasets([ds_dict[split_name] for split_name in ds_dict.keys()])
+    ds = concatenate_datasets([ds_dict[split_name] for split_name in ds_dict])
 
     # Keep only high-quality correct processes, same rule as GIM-SFT script.
     ds = ds.filter(lambda x: x["label"] == -1 and bool(x["final_answer_correct"]), num_proc=num_proc)
@@ -196,9 +200,11 @@ def _build_process_bench(num_proc: int) -> Dataset:
             A_COLUMN: a_value,
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 def _build_uhgeval(num_proc: int) -> Dataset:
@@ -217,9 +223,11 @@ def _build_uhgeval(num_proc: int) -> Dataset:
             A_COLUMN: _to_text(example.get("newsRemainder")),
         }
 
-    return ds.map(_convert, num_proc=num_proc).filter(
-        lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc
-    ).select_columns(OUTPUT_COLUMNS)
+    return (
+        ds.map(_convert, num_proc=num_proc)
+        .filter(lambda x: bool(x[Q_COLUMN]) and bool(x[A_COLUMN]), num_proc=num_proc)
+        .select_columns(OUTPUT_COLUMNS)
+    )
 
 
 BUILDERS = {
