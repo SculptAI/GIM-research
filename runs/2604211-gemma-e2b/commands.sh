@@ -1,1 +1,1 @@
-python runs/2604211-gemma-e2b/train.py; sudo shutdown -h +3
+python runs/2604211-gemma-e2b/train.py; shutdown -h +3
