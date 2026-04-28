@@ -15,8 +15,8 @@ dev = [
     "ruff>=0.15.6",
 ]
 train = [
-    "transformers>=5.2.0",
-    "unsloth>=2026.3.4",
+    "transformers>=5.5.0",
+    "unsloth>=2026.4.6",
     "wandb>=0.25.1",
 ]
 
