@@ -120,11 +120,14 @@ low_subsets = [         # 2697422 in total
 ]
 # fmt: on
 
+
 def is_long(example):
     return len(example["gim_query"]) > configs.LONG_SAMPLE_CONDITION
 
+
 def is_short(example):
     return len(example["gim_query"]) <= configs.LONG_SAMPLE_CONDITION
+
 
 logging.info("Loading raw subsets...")
 raw_high = _concat_subsets(high_subsets).shuffle(seed=configs.RANDOM_SEED)
@@ -170,16 +173,15 @@ sampled_short_low = short_low_pool.select(rng.sample(range(len(short_low_pool)),
 
 
 # 4. Global merge and shuffle
-dataset = concatenate_datasets([
-    sampled_long, 
-    sampled_short_high, 
-    sampled_short_mid, 
-    sampled_short_low
-]).shuffle(seed=configs.RANDOM_SEED)
+dataset = concatenate_datasets([sampled_long, sampled_short_high, sampled_short_mid, sampled_short_low]).shuffle(
+    seed=configs.RANDOM_SEED
+)
 
 logging.info(f"Final Count: {len(dataset)}")
 logging.info(f"Long Pool Breakdown: High={len(sampled_long_high)}, Mid/Low={len(sampled_long_rest)}")
-logging.info(f"Short Pool Breakdown: High={len(sampled_short_high)}, Mid={len(sampled_short_mid)}, Low={len(sampled_short_low)}")
+logging.info(
+    f"Short Pool Breakdown: High={len(sampled_short_high)}, Mid={len(sampled_short_mid)}, Low={len(sampled_short_low)}"
+)
 
 # Map to Chat Template
 dataset = dataset.map(_build_chat_example, num_proc=os.cpu_count() or 1).select_columns(["text"])
