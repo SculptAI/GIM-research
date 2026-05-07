@@ -165,6 +165,7 @@ artifacts/
 
 # UnSloth generated
 unsloth_compiled_cache/
+grpo_trainer_lora_model/
 
 # JSONL files temporarily saved from scripts under datasets
 data/
