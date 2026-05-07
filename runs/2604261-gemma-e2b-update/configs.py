@@ -1,3 +1,6 @@
+# ruff: noqa: PGH004
+# ruff: noqa
+
 import pathlib
 
 import torch
