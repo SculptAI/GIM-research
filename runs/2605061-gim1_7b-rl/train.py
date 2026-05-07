@@ -1,3 +1,7 @@
+# TODO:
+# - Modify reward funcs
+# - Debug eval and saving
+
 import os
 
 
