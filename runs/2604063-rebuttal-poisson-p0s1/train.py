@@ -124,7 +124,9 @@ poisson_dataset = _concat_subsets(poisson_masking_subsets).shuffle(seed=configs.
 semantic_dataset = _concat_subsets(semantic_masking_subsets).shuffle(seed=configs.RANDOM_SEED)
 
 poisson_dataset = poisson_dataset.select(rng.choices(range(len(poisson_dataset)), k=configs.POISSON_MASKING_PROPORTION))
-semantic_dataset = semantic_dataset.select(rng.choices(range(len(semantic_dataset)), k=configs.SEMANTIC_MASKING_PROPORTION))
+semantic_dataset = semantic_dataset.select(
+    rng.choices(range(len(semantic_dataset)), k=configs.SEMANTIC_MASKING_PROPORTION)
+)
 
 dataset = concatenate_datasets([poisson_dataset, semantic_dataset]).shuffle(seed=configs.RANDOM_SEED)
 

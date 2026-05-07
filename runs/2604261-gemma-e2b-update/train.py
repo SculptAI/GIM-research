@@ -55,10 +55,10 @@ model, tokenizer = FastModel.from_pretrained(
 
 model = FastModel.get_peft_model(
     model,
-    finetune_vision_layers     = False, 
-    finetune_language_layers   = True,  
-    finetune_attention_modules = True,  
-    finetune_mlp_modules       = True,  
+    finetune_vision_layers=False,
+    finetune_language_layers=True,
+    finetune_attention_modules=True,
+    finetune_mlp_modules=True,
     r=configs.LORA_R,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
     lora_alpha=configs.LORA_ALPHA,
     lora_dropout=0,  # Supports any, but = 0 is optimized
@@ -171,7 +171,12 @@ trainer = train_on_responses_only(
     response_part="<|turn>model\n",
 )
 logging.info("Training data example:", tokenizer.decode(trainer.train_dataset[100]["input_ids"]))
-logging.info("Training data labels example:", tokenizer.decode([tokenizer.pad_token_id if x == -100 else x for x in trainer.train_dataset[100]["labels"]]).replace(tokenizer.pad_token, " "))
+logging.info(
+    "Training data labels example:",
+    tokenizer.decode(
+        [tokenizer.pad_token_id if x == -100 else x for x in trainer.train_dataset[100]["labels"]]
+    ).replace(tokenizer.pad_token, " "),
+)
 
 trainer_stats = trainer.train()
 
