@@ -16,7 +16,7 @@ dev = [
 ]
 
 [tool.ruff]
-exclude = ["runs", "runs_archived"]
+exclude = ["runs_archived"]
 fix = true
 line-length = 120
 target-version = "py310"
