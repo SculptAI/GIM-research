@@ -4,7 +4,7 @@ import os
 os.environ["UNSLOTH_STABLE_DOWNLOADS"] = (
     "1"  # https://unsloth.ai/docs/basics/troubleshooting-and-faqs#downloading-gets-stuck-at-90-to-95
 )
-os.environ["UNSLOTH_VLLM_STANDBY"] = "1" # [NEW] Extra 30% context lengths!
+os.environ["UNSLOTH_VLLM_STANDBY"] = "1"  # [NEW] Extra 30% context lengths!
 
 from unsloth import FastLanguageModel  # noqa: I001
 
@@ -86,7 +86,7 @@ def check_format(prompts, completions, solution, **kwargs):
     for i in range(len(prompts)):
         query = prompts[i][-1]["content"]
         response = completions[i][-1]["content"]
-        golden_truth = solution[i]
+        golden_truth = solution[i]  # noqa: F841
         try:
             infill(query, response, strict=True)
             scores.append(1)
