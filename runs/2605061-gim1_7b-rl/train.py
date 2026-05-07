@@ -1,15 +1,10 @@
-# TODO
-# 把官方代码里有的内容看看要不要copy过来
-# 把之前训练代码里的东西看看要不要copy过来
-# 完成debug
-# 依赖问题处理完
-
 import os
 
 
 os.environ["UNSLOTH_STABLE_DOWNLOADS"] = (
     "1"  # https://unsloth.ai/docs/basics/troubleshooting-and-faqs#downloading-gets-stuck-at-90-to-95
 )
+os.environ["UNSLOTH_VLLM_STANDBY"] = "1" # [NEW] Extra 30% context lengths!
 
 from unsloth import FastLanguageModel  # noqa: I001
 
