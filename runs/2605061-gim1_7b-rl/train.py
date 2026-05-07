@@ -91,7 +91,7 @@ def check_format(prompts, completions, solution, **kwargs):
     for i in range(len(prompts)):
         query = prompts[i][-1]["content"]
         response = completions[i][-1]["content"]
-        solution = solution[i]
+        golden_truth = solution[i]
         try:
             infill(query, response, strict=True)
             scores.append(1)
