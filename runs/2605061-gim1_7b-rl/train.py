@@ -1,4 +1,4 @@
-#TODO：
+# TODO
 # 把官方代码里有的内容看看要不要copy过来
 # 把之前训练代码里的东西看看要不要copy过来
 # 完成debug
@@ -12,25 +12,27 @@ os.environ["UNSLOTH_STABLE_DOWNLOADS"] = (
 )
 
 from unsloth import FastLanguageModel  # noqa: I001
-import torch
+
 import logging
-import random
-from gimkit.contexts import infill
-from datasets import Dataset, concatenate_datasets, load_dataset
 import pathlib
+import random
+
 import numpy as np
-from vllm import SamplingParams
-from trl import GRPOConfig, GRPOTrainer
+import torch
+
+from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import guide
-from gimkit.contexts import Query
-# from unsloth.chat_templates import get_chat_template, train_on_responses_only
+from gimkit.contexts import Query, infill
+from trl import GRPOConfig, GRPOTrainer
+from vllm import SamplingParams
 
 
 # ─── Train Configs ────────────────────────────────────────────────────────────
 # This class-type configs is easily convertible to python file configs.
 # We keep the class name lowercase and use uppercase for the variables.
 
-class configs:
+
+class configs:  # noqa: N801
     PROJECT_NAME = "GIM-RLVR"
     RUN_NAME = pathlib.Path(__file__).resolve().parent.name
 
@@ -77,10 +79,12 @@ class configs:
     SAMPLING_PARAM_MIN_P = 0.1
     SAMPLING_PARAM_TOP_K = -1
 
+
 configs.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ─── Reward Functions ─────────────────────────────────────────────────────────
+
 
 def check_format(prompts, completions, solution, **kwargs):
     scores = []
@@ -91,13 +95,14 @@ def check_format(prompts, completions, solution, **kwargs):
         try:
             infill(query, response, strict=True)
             scores.append(1)
-        except:
+        except:  # noqa: E722
             scores.append(0)
     return scores
 
-reward_funcs =[
+
+reward_funcs = [
     check_format,
-    ]
+]
 
 
 # ─── General Setup ────────────────────────────────────────────────────────────
@@ -123,29 +128,35 @@ for key in dir(configs):
 # ─── Load Model And Tokenizer ─────────────────────────────────────────────────
 
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = configs.BASE_MODEL_NAME,
-    max_seq_length = configs.MAX_SEQ_LENGTH,
-    load_in_4bit = configs.QUANT_BITS == 4, # False for LoRA 16bit
-    fast_inference = True, # Enable vllm fast inference
-    max_lora_rank = configs.LORA_R,
-    gpu_memory_utilization = 0.9, # Reduce if out of memory
+    model_name=configs.BASE_MODEL_NAME,
+    max_seq_length=configs.MAX_SEQ_LENGTH,
+    load_in_4bit=configs.QUANT_BITS == 4,  # False for LoRA 16bit
+    fast_inference=True,  # Enable vllm fast inference
+    max_lora_rank=configs.LORA_R,
+    gpu_memory_utilization=0.9,  # Reduce if out of memory
     enforce_eager=True,  # important
 )
 
 model = FastLanguageModel.get_peft_model(
     model,
-    r = configs.LORA_R, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-    target_modules = [
-        "q_proj", "k_proj", "v_proj", "o_proj",
-        "gate_proj", "up_proj", "down_proj",
+    r=configs.LORA_R,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj",
     ],
-    lora_alpha = configs.LORA_ALPHA, # *2 speeds up training
-    use_gradient_checkpointing = "unsloth", # Reduces memory usage
-    random_state = configs.RANDOM_SEED,
+    lora_alpha=configs.LORA_ALPHA,  # *2 speeds up training
+    use_gradient_checkpointing="unsloth",  # Reduces memory usage
+    random_state=configs.RANDOM_SEED,
 )
 
 
 # ─── Load Dataset ─────────────────────────────────────────────────────────────
+
 
 def _concat_subsets(subsets: list[str]) -> Dataset:
     return concatenate_datasets([load_dataset(configs.DATASET_NAME, subset, split="train") for subset in subsets])
@@ -153,10 +164,9 @@ def _concat_subsets(subsets: list[str]) -> Dataset:
 
 def _build_chat_example(example: dict) -> dict:
     return {
-        "prompt": 
-            [
-                {"role": "user", "content": example["gim_query"]},
-            ],
+        "prompt": [
+            {"role": "user", "content": example["gim_query"]},
+        ],
         "solution": example["gim_response"],
     }
 
@@ -207,11 +217,7 @@ logging.info(f"Dataset sample: {dataset[0]=}")
 tokenized = dataset.map(
     lambda x: {
         "prompt_tokens": [
-            tokenizer.apply_chat_template(
-                [{"role": "user", "content": q}],
-                add_generation_prompt=True,
-                tokenize=True
-            )
+            tokenizer.apply_chat_template([{"role": "user", "content": q}], add_generation_prompt=True, tokenize=True)
             for q in x["gim_query"]
         ],
         "prompt_completion_tokens": [
@@ -221,20 +227,21 @@ tokenized = dataset.map(
                     {"role": "assistant", "content": r},
                 ],
                 add_generation_prompt=False,
-                tokenize=True
+                tokenize=True,
             )
-            for q, r in zip(x["gim_query"], x["gim_response"])
+            for q, r in zip(x["gim_query"], x["gim_response"], strict=True)
         ],
     },
     batched=True,
 )
 logging.info(f"{tokenizer.decode(tokenized[0]['prompt_tokens'])=}")
 logging.info(f"{tokenizer.decode(tokenized[0]['prompt_completion_tokens'])=}")
-tokenized = tokenized.map(lambda x: {"len_prompt" : len(x["prompt_tokens"]), "len_prompt_completion" : len(x["prompt_completion_tokens"])})
+tokenized = tokenized.map(
+    lambda x: {"len_prompt": len(x["prompt_tokens"]), "len_prompt_completion": len(x["prompt_completion_tokens"])}
+)
 
 
-
-# prompt + completion <= max_seq_length - 256
+# We wish prompt + completion <= max_seq_length - 256
 dataset = dataset.select(np.where(np.array(tokenized["len_prompt_completion"]) <= configs.MAX_SEQ_LENGTH - 256)[0])
 tokenized = tokenized.select(np.where(np.array(tokenized["len_prompt_completion"]) <= configs.MAX_SEQ_LENGTH - 256)[0])
 
@@ -251,53 +258,54 @@ del tokenized
 
 
 vllm_sampling_params = SamplingParams(
-    min_p = configs.SAMPLING_PARAM_MIN_P,
-    top_p = configs.SAMPLING_PARAM_TOP_P,
-    top_k = configs.SAMPLING_PARAM_TOP_K,
-    seed = configs.RANDOM_SEED,
-    stop = [tokenizer.eos_token],
-    include_stop_str_in_output = True,
+    min_p=configs.SAMPLING_PARAM_MIN_P,
+    top_p=configs.SAMPLING_PARAM_TOP_P,
+    top_k=configs.SAMPLING_PARAM_TOP_K,
+    seed=configs.RANDOM_SEED,
+    stop=[tokenizer.eos_token],
+    include_stop_str_in_output=True,
 )
 
 
 _max_prompt_length = max_prompt_length + 1  # + 1 just in case
-_max_completion_length = configs.MAX_SEQ_LENGTH - (_max_prompt_length+1)
-logging.info(f"Using max_prompt_length={_max_prompt_length} and max_completion_length={_max_completion_length} for training.")
+_max_completion_length = configs.MAX_SEQ_LENGTH - (_max_prompt_length + 1)
+logging.info(
+    f"Using max_prompt_length={_max_prompt_length} and max_completion_length={_max_completion_length} for training."
+)
 
 trainer = GRPOTrainer(
-    model = model,
-    processing_class = tokenizer,
-    reward_funcs = reward_funcs,
-    train_dataset = dataset.select(range(configs.TRAIN_SIZE)),
-    eval_dataset = None if configs.NO_EVAL else dataset.select(range(configs.TRAIN_SIZE, configs.DATASET_LEN)),
-    args = GRPOConfig(
-    vllm_sampling_params = vllm_sampling_params,
-    temperature = configs.SAMPLING_PARAM_TEMPERATURE,
-    learning_rate = configs.LEARNING_RATE,
-    weight_decay = configs.WEIGHT_DECAY,
-    warmup_steps = configs.WARMUP_STEPS,
-    lr_scheduler_type = configs.LR_SCHEDULER_TYPE,
-    optim = "adamw_8bit",
-    logging_steps = 1,
-    per_device_train_batch_size = configs.MICRO_BSZ,
-    gradient_accumulation_steps = configs.GRAD_ACCUM, # Increase to 4 for smoother training
-    num_generations = configs.NUM_GENERATIONS, # Decrease if out of memory
-    max_prompt_length = _max_prompt_length,
-    max_completion_length = _max_completion_length,
-    num_train_epochs = 1, # Set to 1 for a full training run
-    max_steps = -1,
-    save_steps = configs.SAVE_STEPS,
-    report_to="wandb",
-    output_dir = configs.ARTIFACTS_DIR,
-    run_name = configs.RUN_NAME,
-
-    # For optional evaluation
-    fp16_full_eval = True,
-    per_device_eval_batch_size = configs.GLOBAL_BSZ,
-    eval_accumulation_steps = None if configs.NO_EVAL else configs.GRAD_ACCUM,
-    eval_strategy = "no" if configs.NO_EVAL else "steps",
-    eval_steps = None if configs.NO_EVAL else configs.EVAL_STEPS,
-),
+    model=model,
+    processing_class=tokenizer,
+    reward_funcs=reward_funcs,
+    train_dataset=dataset.select(range(configs.TRAIN_SIZE)),
+    eval_dataset=None if configs.NO_EVAL else dataset.select(range(configs.TRAIN_SIZE, configs.DATASET_LEN)),
+    args=GRPOConfig(
+        vllm_sampling_params=vllm_sampling_params,
+        temperature=configs.SAMPLING_PARAM_TEMPERATURE,
+        learning_rate=configs.LEARNING_RATE,
+        weight_decay=configs.WEIGHT_DECAY,
+        warmup_steps=configs.WARMUP_STEPS,
+        lr_scheduler_type=configs.LR_SCHEDULER_TYPE,
+        optim="adamw_8bit",
+        logging_steps=1,
+        per_device_train_batch_size=configs.MICRO_BSZ,
+        gradient_accumulation_steps=configs.GRAD_ACCUM,  # Increase to 4 for smoother training
+        num_generations=configs.NUM_GENERATIONS,  # Decrease if out of memory
+        max_prompt_length=_max_prompt_length,
+        max_completion_length=_max_completion_length,
+        num_train_epochs=1,  # Set to 1 for a full training run
+        max_steps=-1,
+        save_steps=configs.SAVE_STEPS,
+        report_to="wandb",
+        output_dir=configs.ARTIFACTS_DIR,
+        run_name=configs.RUN_NAME,
+        # For optional evaluation
+        fp16_full_eval=True,
+        per_device_eval_batch_size=configs.GLOBAL_BSZ,
+        eval_accumulation_steps=None if configs.NO_EVAL else configs.GRAD_ACCUM,
+        eval_strategy="no" if configs.NO_EVAL else "steps",
+        eval_steps=None if configs.NO_EVAL else configs.EVAL_STEPS,
+    ),
 )
 trainer.train()
 
@@ -308,15 +316,19 @@ text = str(Query(f"This is an {guide()} text."))
 logging.info("Request: " + text)
 
 sampling_params = SamplingParams(
-    temperature = 1.0,
-    top_k = 50,
-    max_tokens = 1024,
+    temperature=1.0,
+    top_k=50,
+    max_tokens=1024,
 )
-output = model.fast_generate(
-    [text],
-    sampling_params = sampling_params,
-    lora_request = None,
-)[0].outputs[0].text
+output = (
+    model.fast_generate(
+        [text],
+        sampling_params=sampling_params,
+        lora_request=None,
+    )[0]
+    .outputs[0]
+    .text
+)
 logging.info("Response: " + output)
 
 
