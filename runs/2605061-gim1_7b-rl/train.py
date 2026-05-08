@@ -1,6 +1,5 @@
 # TODO:
 # - Modify reward funcs
-# - Debug eval and saving
 
 import os
 
@@ -110,18 +109,20 @@ os.environ["WANDB_PROJECT"] = configs.PROJECT_NAME
 os.environ["WANDB_DIR"] = str(configs.ARTIFACTS_DIR)
 os.environ["WANDB_LOG_MODEL"] = "end"
 
+train_log_path = configs.ARTIFACTS_DIR / "training.log"
 logging.basicConfig(
-    filename=configs.ARTIFACTS_DIR / "training.log",
+    filename=train_log_path,
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     force=True,
 )
+print(f"Training logs will be saved to {train_log_path}")
 
 logging.info("Training configurations:")
-for key in dir(configs):
+for key, value in configs.__dict__.items():
     if key.isupper():
-        logging.info(f"{key} = {getattr(configs, key)}")
+        logging.info(f"{key} = {value}")
 
 
 # ─── Load Model And Tokenizer ─────────────────────────────────────────────────
