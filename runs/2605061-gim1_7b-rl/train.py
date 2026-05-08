@@ -1,6 +1,3 @@
-# TODO:
-# - Modify reward funcs
-
 import os
 
 
@@ -84,7 +81,7 @@ configs.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 # ─── Reward Functions ─────────────────────────────────────────────────────────
 
 
-def check_format(prompts, completions, solution, **kwargs):
+def format_reward(prompts, completions, solution, **kwargs):
     scores = []
     for i in range(len(prompts)):
         query = prompts[i][-1]["content"]
@@ -97,9 +94,21 @@ def check_format(prompts, completions, solution, **kwargs):
             scores.append(0)
     return scores
 
+def length_reward(prompts, completions, solution, **kwargs):
+    scores = []
+    for i in range(len(prompts)):
+        query = prompts[i][-1]["content"]
+        response = completions[i][-1]["content"]
+        golden_truth = solution[i]  # noqa: F841
+        if len(response) <= len(golden_truth):
+            scores.append(1)
+        else:
+            scores.append(0)
+    return scores
 
 reward_funcs = [
-    check_format,
+    format_reward,
+    length_reward,
 ]
 
 
