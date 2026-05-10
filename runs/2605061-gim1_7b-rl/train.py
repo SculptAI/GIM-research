@@ -37,7 +37,7 @@ class configs:  # noqa: N801
     RANDOM_SEED = 42
 
     BASE_MODEL_NAME = "Sculpt-AI/GIM-1.7B"
-    MAX_SEQ_LENGTH = 4096
+    MAX_SEQ_LENGTH = 2048
     QUANT_BITS = 4
 
     DATASET_NAME = "Sculpt-AI/GIM-SFT"
@@ -89,9 +89,17 @@ def format_reward(prompts, completions, solution, **kwargs):
         golden_truth = solution[i]  # noqa: F841
         try:
             infill(query, response, strict=True)
-            scores.append(1)
+            scores.append(2)
+            continue
         except:  # noqa: E722
-            scores.append(0)
+            pass
+        try:
+            infill(query, golden_truth)
+            scores.append(1)
+            continue
+        except:  # noqa: E722
+            pass
+        scores.append(-1)
     return scores
 
 def length_reward(prompts, completions, solution, **kwargs):
@@ -103,7 +111,7 @@ def length_reward(prompts, completions, solution, **kwargs):
         if len(response) <= len(golden_truth):
             scores.append(1)
         else:
-            scores.append(0)
+            scores.append(-1)
     return scores
 
 reward_funcs = [
@@ -249,10 +257,9 @@ tokenized = tokenized.map(
     lambda x: {"len_prompt": len(x["prompt_tokens"]), "len_prompt_completion": len(x["prompt_completion_tokens"])}
 )
 
-
-# We wish prompt + completion <= max_seq_length - 256
-dataset = dataset.select(np.where(np.array(tokenized["len_prompt_completion"]) <= configs.MAX_SEQ_LENGTH - 256)[0])
-tokenized = tokenized.select(np.where(np.array(tokenized["len_prompt_completion"]) <= configs.MAX_SEQ_LENGTH - 256)[0])
+condition = (np.array(tokenized["len_prompt"]) <= configs.MAX_SEQ_LENGTH *2//3) & (np.array(tokenized["len_prompt_completion"]) <= configs.MAX_SEQ_LENGTH - 256)
+dataset = dataset.select(np.where(condition)[0])
+tokenized = tokenized.select(np.where(condition)[0])
 
 # Get the maximum prompt length and prompt + completion length for logging
 max_prompt_length = max(tokenized["len_prompt"])
