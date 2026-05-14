@@ -107,17 +107,41 @@ def length_reward(prompts, completions, solution, **kwargs):
     scores = []
     for i in range(len(prompts)):
         response = completions[i][-1]["content"]
+        golden = solution[i]
+
+        ratio = len(response) / max(len(golden), 1)
+        r = 1 - ratio  # the lower the better
+        r = max(-1, min(1, r))  # clip to [-1, 1]
+        scores.append(r)
+    return scores
+
+
+def correctness_reward(prompts, completions, solution, **kwargs):
+    scores = []
+    for i in range(len(prompts)):
+        query = prompts[i][-1]["content"]
+        response = completions[i][-1]["content"]
         golden_truth = solution[i]
-        if len(response) <= len(golden_truth):
-            scores.append(1)
-        else:
-            scores.append(-1)
+        try:
+            pred_result = infill(query, response)
+            real_result = infill(query, golden_truth)
+
+            correct_tags = 0
+            for pred_tag, real_tag in zip(pred_result.tags, real_result.tags, strict=True):
+                if pred_tag == real_tag:
+                    correct_tags += 1
+            scores.append(correct_tags)
+        except:  # noqa: E722
+            scores.append(0)
+    
+    logging.info(f"Query: {query}, Response: {response}, Golden Truth: {golden_truth}, Correct Tags: {correct_tags}")
     return scores
 
 
 reward_funcs = [
     format_reward,
     length_reward,
+    correctness_reward,
 ]
 
 
