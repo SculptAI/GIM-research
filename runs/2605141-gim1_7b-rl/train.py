@@ -133,7 +133,7 @@ def correctness_reward(prompts, completions, solution, **kwargs):
             scores.append(correct_tags)
         except:  # noqa: E722
             scores.append(0)
-    
+
     logging.info(f"Query: {query}, Response: {response}, Golden Truth: {golden_truth}, Correct Tags: {correct_tags}")
     return scores
 
