@@ -43,9 +43,9 @@ class configs:  # noqa: N801
 
     DATASET_NAME = "Sculpt-AI/GIM-SFT"
     DATASET_LEN = 5_000
-    RESULTS_VERIFIABLE_SUBSETS = 1_000
+    RESULTS_VERIFIABLE_SUBSETS = 2_000
     HIGH_SUBSETS = 2_000
-    MID_SUBSETS = 1_000
+    MID_SUBSETS = 500
     LOW_SUBSETS = DATASET_LEN - RESULTS_VERIFIABLE_SUBSETS - HIGH_SUBSETS - MID_SUBSETS
 
     TRAIN_SPLIT = 0.98
@@ -67,7 +67,7 @@ class configs:  # noqa: N801
 
     LORA_R = 32
     LORA_ALPHA = 32
-    LR_SCHEDULER_TYPE = "linear"
+    LR_SCHEDULER_TYPE = "cosine"
     WEIGHT_DECAY = 0.001
 
     SAMPLING_PARAM_TEMPERATURE = 1.0
@@ -103,47 +103,71 @@ def format_reward(prompts, completions, **kwargs):
     return scores
 
 
-def length_reward(prompts, completions, solution, **kwargs):
+def correctness_length_reward(prompts, completions, solution, **kwargs):
     scores = []
-    for i in range(len(prompts)):
-        response = completions[i][-1]["content"]
-        golden = solution[i]
 
-        ratio = len(response) / max(len(golden), 1)
-        r = 1 - ratio  # the lower the better
-        r = max(-1, min(1, r))  # clip to [-1, 1]
-        scores.append(r)
-    return scores
-
-
-def correctness_reward(prompts, completions, solution, **kwargs):
-    scores = []
     for i in range(len(prompts)):
         query = prompts[i][-1]["content"]
         response = completions[i][-1]["content"]
         golden_truth = solution[i]
+
         try:
             pred_result = infill(query, response)
             real_result = infill(query, golden_truth)
 
-            correct_tags = 0
-            for pred_tag, real_tag in zip(pred_result.tags, real_result.tags, strict=True):
-                if pred_tag == real_tag:
-                    correct_tags += 1
-            scores.append(correct_tags)
-        except:  # noqa: E722
-            scores.append(0)
+            # ----- correctness -----
+            total_tags = len(real_result.tags)
 
-    logging.info(
-        f"Rollout Query: {query}\nRollout Response: {response}\nRollout Golden Truth: {golden_truth}\nCorrect Tags: {correct_tags}"
-    )
+            correct_tags = sum(
+                pred_tag == real_tag
+                for pred_tag, real_tag in zip(
+                    pred_result.tags,
+                    real_result.tags,
+                    strict=True,
+                )
+            )
+
+            acc = correct_tags / max(total_tags, 1)
+
+            # map to [-1, 1]
+            correctness_reward = 2 * acc - 1
+
+            # ----- length regularization -----
+            response_len = len(response)
+            golden_len = len(golden_truth)
+
+            ratio = response_len / max(golden_len, 1)
+
+            # no penalty in reasonable range
+            if ratio <= 1.2:
+                length_factor = 1.0
+
+            # soft penalty for verbosity
+            elif ratio <= 2.0:
+                length_factor = 1.0 - 0.3 * (ratio - 1.2) / 0.8
+
+            # stronger penalty for runaway reasoning
+            else:
+                length_factor = 0.7 * np.exp(-(ratio - 2.0))
+
+            # ----- combine -----
+            reward = correctness_reward * length_factor
+
+            # small bonus for perfect match
+            if acc == 1.0:
+                reward += 0.5
+
+            scores.append(float(reward))
+
+        except Exception:
+            scores.append(-1.0)
+
     return scores
 
 
 reward_funcs = [
     format_reward,
-    length_reward,
-    correctness_reward,
+    correctness_length_reward,
 ]
 
 
