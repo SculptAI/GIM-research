@@ -205,7 +205,7 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
     reward_debug_counter += 1
 
     # ===== aggregate stats =====
-    if reward_debug_counter % 1 == 0:
+    if reward_debug_counter % 10 == 0:
         logging.info(
             "[RewardStats] "
             f"calls={reward_debug_counter} "
@@ -219,7 +219,7 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
         )
 
     # ===== sample dump =====
-    if reward_debug_counter % 500 == 0 and sample_query is not None:
+    if reward_debug_counter % 20 == 0 and sample_query is not None:
         logging.info(
             "\n"
             "================ REWARD SAMPLE ================\n"
