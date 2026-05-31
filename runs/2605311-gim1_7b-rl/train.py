@@ -67,7 +67,7 @@ class configs:  # noqa: N801
 
     LORA_R = 32
     LORA_ALPHA = 32
-    LR_SCHEDULER_TYPE = "cosine"
+    LR_SCHEDULER_TYPE = "constant_with_warmup"
     WEIGHT_DECAY = 0.001
 
     SAMPLING_PARAM_TEMPERATURE = 1.0
@@ -205,7 +205,7 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
     reward_debug_counter += 1
 
     # ===== aggregate stats =====
-    if reward_debug_counter % 100 == 0:
+    if reward_debug_counter % 1 == 0:
         logging.info(
             "[RewardStats] "
             f"calls={reward_debug_counter} "
