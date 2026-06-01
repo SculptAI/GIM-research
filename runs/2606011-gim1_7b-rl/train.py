@@ -156,7 +156,7 @@ def format_correctness_length_reward(prompts, completions, solution, **kwargs):
         logging.info(
             "[RewardStats] "
             f"calls={reward_debug_counter} "
-            f"correct_tags={np.mean(batch_correct_tags)} "
+            f"correct_tags={np.mean(batch_correct_tags):.4f} "
             f"total_tags={total_tags} "
             f"ratio={np.mean(batch_ratio):.4f} "
             f"len_factor={np.mean(batch_length_factor):.4f} "
