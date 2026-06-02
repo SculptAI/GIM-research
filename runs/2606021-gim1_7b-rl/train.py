@@ -18,7 +18,7 @@ import torch
 from datasets import Dataset, concatenate_datasets, load_dataset
 from gimkit import guide
 from gimkit.contexts import Query, infill
-from gimkit.schemas import validate
+from math_verify import parse as math_parse, verify as math_verify
 from trl import GRPOConfig, GRPOTrainer
 from vllm import SamplingParams
 
@@ -38,15 +38,14 @@ class configs:  # noqa: N801
     RANDOM_SEED = 42
 
     BASE_MODEL_NAME = "Sculpt-AI/GIM-1.7B"
-    MAX_SEQ_LENGTH = 2048
+    MAX_SEQ_LENGTH = 4096
     QUANT_BITS = 4
 
     DATASET_NAME = "Sculpt-AI/GIM-SFT"
-    DATASET_LEN = 5_000
-    RESULTS_VERIFIABLE_SUBSETS = 2_000
-    HIGH_SUBSETS = 2_000
-    MID_SUBSETS = 500
-    LOW_SUBSETS = DATASET_LEN - RESULTS_VERIFIABLE_SUBSETS - HIGH_SUBSETS - MID_SUBSETS
+    DATASET_LEN = 2_000
+    HIGH_SUBSETS = 1_200
+    MID_SUBSETS = 400
+    LOW_SUBSETS = DATASET_LEN - HIGH_SUBSETS - MID_SUBSETS
 
     TRAIN_SPLIT = 0.98
     TRAIN_SIZE = int(DATASET_LEN * TRAIN_SPLIT)
@@ -55,7 +54,7 @@ class configs:  # noqa: N801
     MICRO_BSZ = 2
     GRAD_ACCUM = 4
     GLOBAL_BSZ = MICRO_BSZ * GRAD_ACCUM * NUM_GPUS
-    NUM_GENERATIONS = 4
+    NUM_GENERATIONS = 8
 
     LEARNING_RATE = 5e-6
 
@@ -67,7 +66,7 @@ class configs:  # noqa: N801
 
     LORA_R = 32
     LORA_ALPHA = 32
-    LR_SCHEDULER_TYPE = "constant_with_warmup"
+    LR_SCHEDULER_TYPE = "cosine"
     WEIGHT_DECAY = 0.001
 
     SAMPLING_PARAM_TEMPERATURE = 1.0
@@ -81,51 +80,30 @@ configs.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── Reward Functions ─────────────────────────────────────────────────────────
 
-
-def format_reward(prompts, completions, **kwargs):
-    scores = []
-    for i in range(len(prompts)):
-        query = prompts[i][-1]["content"]
-        response = completions[i][-1]["content"]
-        try:
-            validate(query, response)
-            scores.append(2)
-            continue
-        except:  # noqa: E722
-            pass
-        try:
-            infill(query, response, strict=False)
-            scores.append(1)
-            continue
-        except:  # noqa: E722
-            pass
-        scores.append(-1)
-    return scores
-
-
 reward_debug_counter = 0
 
 
-def correctness_length_reward(prompts, completions, solution, **kwargs):
+def format_correctness_length_reward(prompts, completions, solution, **kwargs):
+    def _tag_match(pred: str | None, golden: str | None) -> bool:
+        if pred is None or golden is None:
+            return False
+        if pred.strip() == golden.strip():
+            return True
+        try:
+            return math_verify(math_parse(golden), math_parse(pred))
+        except Exception:
+            return False
+
     global reward_debug_counter
 
     scores = []
 
-    batch_acc = []
+    batch_correct_tags = []
     batch_ratio = []
     batch_reward = []
-    batch_correctness_reward = []
     batch_length_factor = []
-    batch_perfect_match = []
 
     exception_count = 0
-
-    sample_query = None
-    sample_response = None
-    sample_golden = None
-    sample_acc = None
-    sample_ratio = None
-    sample_reward = None
 
     for i in range(len(prompts)):
         query = prompts[i][-1]["content"]
@@ -133,27 +111,21 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
         golden_truth = solution[i]
 
         try:
-            pred_result = infill(query, response)
+            pred_result = infill(query, response, strict=True)
             real_result = infill(query, golden_truth)
 
             # ----- correctness -----
-            total_tags = len(real_result.tags)
-
             correct_tags = sum(
-                pred_tag == real_tag
+                _tag_match(pred_tag.content, real_tag.content)
                 for pred_tag, real_tag in zip(
                     pred_result.tags,
                     real_result.tags,
                     strict=True,
                 )
             )
+            total_tags = len(real_result.tags)
 
-            acc = correct_tags / max(total_tags, 1)
-
-            # map to [-1, 1]
-            correctness_reward = 2 * acc - 1
-
-            # ----- length regularization -----
+            # ----- length penalty -----
             response_len = len(response)
             golden_len = len(golden_truth)
 
@@ -172,32 +144,17 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
                 length_factor = 0.7 * np.exp(-(ratio - 2.0))
 
             # ----- combine -----
-            reward = correctness_reward * length_factor
-
-            # perfect prediction bonus
-            if acc == 1.0:
-                reward += 0.5
+            reward = correct_tags * length_factor
 
             reward = float(reward)
 
             scores.append(reward)
 
             # ----- stats -----
-            batch_acc.append(acc)
+            batch_correct_tags.append(correct_tags)
             batch_ratio.append(ratio)
             batch_reward.append(reward)
-            batch_correctness_reward.append(correctness_reward)
             batch_length_factor.append(length_factor)
-            batch_perfect_match.append(acc == 1.0)
-
-            # save first sample for debug
-            if sample_query is None:
-                sample_query = query
-                sample_response = response
-                sample_golden = golden_truth
-                sample_acc = acc
-                sample_ratio = ratio
-                sample_reward = reward
 
         except Exception:
             exception_count += 1
@@ -206,30 +163,29 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
     reward_debug_counter += 1
 
     # ===== aggregate stats =====
-    if reward_debug_counter % 10 == 0:
+    if reward_debug_counter % 1 == 0:
         logging.info(
             "[RewardStats] "
             f"calls={reward_debug_counter} "
-            f"acc={np.mean(batch_acc):.4f} "
-            f"perfect={np.mean(batch_perfect_match):.4f} "
+            f"correct_tags={np.mean(batch_correct_tags):.4f} "
+            f"total_tags={total_tags} "
             f"ratio={np.mean(batch_ratio):.4f} "
-            f"corr_reward={np.mean(batch_correctness_reward):.4f} "
             f"len_factor={np.mean(batch_length_factor):.4f} "
             f"final_reward={np.mean(batch_reward):.4f} "
             f"exceptions={exception_count}/{len(prompts)}"
         )
 
     # ===== sample dump =====
-    if reward_debug_counter % 20 == 0 and sample_query is not None:
+    if reward_debug_counter % 10 == 0:
         logging.info(
             "\n"
             "================ REWARD SAMPLE ================\n"
-            f"Acc: {sample_acc:.4f}\n"
-            f"Length Ratio: {sample_ratio:.4f}\n"
-            f"Reward: {sample_reward:.4f}\n\n"
-            f"Query:\n{sample_query[:1000]}\n\n"
-            f"Prediction:\n{sample_response[:2000]}\n\n"
-            f"Golden:\n{sample_golden[:2000]}\n"
+            f"Correct Tags: {correct_tags}\n"
+            f"Length Ratio: {ratio:.4f}\n"
+            f"Reward: {reward:.4f}\n\n"
+            f"Query:\n{query}\n\n"
+            f"Prediction:\n{response}\n\n"
+            f"Golden:\n{golden_truth}\n"
             "================================================"
         )
 
@@ -237,8 +193,7 @@ def correctness_length_reward(prompts, completions, solution, **kwargs):
 
 
 reward_funcs = [
-    format_reward,
-    correctness_length_reward,
+    format_correctness_length_reward,
 ]
 
 
@@ -319,47 +274,31 @@ def _build_chat_example(example: dict) -> dict:
 
 
 # fmt: off
-results_verifiable_subsets = [
+high_subsets = [
     "gsm8k_reasoning",  # 1254
     "o1_journey",       # 327
-    "o1_journey",       # 327
-    "o1_journey",       # 327
-    # Repeating o1_journey to make the dataset more balanced
 ]
-high_subsets = [
-    "hk_o1aw",          # 14363
-    "lima",             # 1030
-    "process_bench",    # 1179
-    "uhgeval",          # 5141
-]
-mid_subsets = [         # 437113 in total
-    "cnn_daily_mail",   # 287113
+mid_subsets = [
     "magpie_reasoning", # 150000
 ]
-low_subsets = [         # 2697422 in total
+low_subsets = [
     "kaist_cot",        # 1837928
-    "numina_math",      # 859494
 ]
 # fmt: on
 
 logging.info("Loading and preparing dataset...")
 
-verifiable_dataset = _process_subsets(
-    results_verifiable_subsets, configs.RESULTS_VERIFIABLE_SUBSETS, configs.RANDOM_SEED
-)
 high_dataset = _process_subsets(high_subsets, configs.HIGH_SUBSETS, configs.RANDOM_SEED)
 mid_dataset = _process_subsets(mid_subsets, configs.MID_SUBSETS, configs.RANDOM_SEED)
 low_dataset = _process_subsets(low_subsets, configs.LOW_SUBSETS, configs.RANDOM_SEED)
 dataset = (
-    concatenate_datasets([verifiable_dataset, high_dataset, mid_dataset, low_dataset])
+    concatenate_datasets([high_dataset, mid_dataset, low_dataset])
     .shuffle(seed=configs.RANDOM_SEED)
     .map(_build_chat_example, num_proc=os.cpu_count() or 1)
 )
 
 logging.info(f"Dataset loaded and prepared. Total length: {len(dataset)}")
-logging.info(
-    f"Number of training samples: verifiable={len(verifiable_dataset)}, high={len(high_dataset)}, mid={len(mid_dataset)}, low={len(low_dataset)}"
-)
+logging.info(f"Number of training samples: high={len(high_dataset)}, mid={len(mid_dataset)}, low={len(low_dataset)}")
 logging.info(f"Dataset sample: {dataset[0]=}")
 
 
