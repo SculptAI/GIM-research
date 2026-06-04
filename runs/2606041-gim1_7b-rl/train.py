@@ -42,9 +42,9 @@ class configs:  # noqa: N801
     QUANT_BITS = 4
 
     DATASET_NAME = "Sculpt-AI/GIM-SFT"
-    DATASET_LEN = 1_000
-    HIGH_SUBSETS = 600
-    MID_SUBSETS = 200
+    DATASET_LEN = 2_000
+    HIGH_SUBSETS = 1_000
+    MID_SUBSETS = 500
     LOW_SUBSETS = DATASET_LEN - HIGH_SUBSETS - MID_SUBSETS
 
     TRAIN_SPLIT = 0.98
@@ -64,12 +64,14 @@ class configs:  # noqa: N801
     EVAL_STEPS = SAVE_STEPS
     NO_EVAL = True
 
+    NUM_TRAIN_EPOCHS = 0.5
+
     LORA_R = 32
     LORA_ALPHA = 32
     LR_SCHEDULER_TYPE = "constant_with_warmup"
     WEIGHT_DECAY = 0.001
 
-    SAMPLING_PARAM_TEMPERATURE = 1.2
+    SAMPLING_PARAM_TEMPERATURE = 1.0
     SAMPLING_PARAM_TOP_P = 1.0
     SAMPLING_PARAM_MIN_P = 0.1
     SAMPLING_PARAM_TOP_K = -1
@@ -385,7 +387,7 @@ trainer = GRPOTrainer(
         num_generations=configs.NUM_GENERATIONS,  # Decrease if out of memory
         max_prompt_length=_max_prompt_length,
         max_completion_length=_max_completion_length,
-        num_train_epochs=1,  # Set to 1 for a full training run
+        num_train_epochs=configs.NUM_TRAIN_EPOCHS,  # Set to 1 for a full training run
         max_steps=-1,
         save_steps=configs.SAVE_STEPS,
         report_to="wandb",
