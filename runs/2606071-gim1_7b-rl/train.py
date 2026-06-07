@@ -65,6 +65,7 @@ class configs:  # noqa: N801
     NO_EVAL = True
 
     NUM_TRAIN_EPOCHS = 0.5
+    REAL_TRAIN_STEPS = int(ESTIMATED_STEPS * NUM_TRAIN_EPOCHS)
 
     LORA_R = 32
     LORA_ALPHA = 32
